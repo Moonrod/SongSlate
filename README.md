@@ -26,7 +26,7 @@ interrupted / error), and any interruptions, output changes or backgrounding dur
 
 ## Setup
 
-Requirements: Node 20+ (tested with 22), and for local native builds Xcode 16+ (macOS) and/or
+Requirements: **Node 22.13+ or 24.3+** (check with `node -v`; React Native 0.88 requires it), and for local native builds Xcode 16+ (macOS) and/or
 Android Studio with an SDK and emulator.
 
 ```bash
