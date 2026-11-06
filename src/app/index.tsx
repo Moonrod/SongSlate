@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { cueTimecodeBase } from '../domain/section';
 import { formatTimecode } from '../domain/timecode';
 import { boostBrightness, restoreBrightness } from '../services/device';
 import { useSlateController } from '../slate/useSlateController';
@@ -60,10 +61,15 @@ export default function SlateScreen() {
   const landscape = width > height;
 
   const cueIndex = armedCue ? cues.findIndex((c) => c.id === armedCue.id) : -1;
+  // Sections show the original song's timecode, so their start is always a timecode.
   const startLabel = armedCue
-    ? armedCue.startMode === 'full'
+    ? armedCue.startMode === 'full' && !armedCue.section
       ? 'FULL SONG'
-      : formatTimecode(armedCue.startSeconds, settings.frameRate, settings.dropFrame)
+      : formatTimecode(
+          cueTimecodeBase(armedCue) + (armedCue.startMode === 'timecode' ? armedCue.startSeconds : 0),
+          settings.frameRate,
+          settings.dropFrame,
+        )
     : '';
 
   const onSwipe = (dir: 'next' | 'prev') => {

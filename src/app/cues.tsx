@@ -2,6 +2,7 @@ import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { cueTimecodeBase } from '../domain/section';
 import { formatDuration, formatTimecode } from '../domain/timecode';
 import { pickAndImportAudio } from '../services/audioFiles';
 import { useAppStore } from '../state/store';
@@ -52,12 +53,26 @@ export default function CueListScreen() {
             <Button title="Import audio" variant="primary" onPress={onImport} disabled={importing} />
           </View>
         }
+        ListFooterComponent={
+          cues.length ? (
+            <Button
+              title="✂︎ New section from a song"
+              onPress={() => router.push('/section')}
+              style={{ marginTop: 8 }}
+            />
+          ) : undefined
+        }
         renderItem={({ item, index }) => {
           const armed = item.id === armedCueId;
-          const start =
-            item.startMode === 'full'
+          const base = cueTimecodeBase(item);
+          const tc = (s: number) => formatTimecode(s, settings.frameRate, settings.dropFrame);
+          const start = item.section
+            ? `SECTION ${tc(item.section.startSeconds)}–${tc(item.section.endSeconds)}${
+                item.startMode === 'timecode' ? `, from ${tc(base + item.startSeconds)}` : ''
+              }`
+            : item.startMode === 'full'
               ? 'FULL SONG'
-              : `from ${formatTimecode(item.startSeconds, settings.frameRate, settings.dropFrame)}`;
+              : `from ${tc(item.startSeconds)}`;
           return (
             <View style={[styles.row, armed && styles.rowArmed]}>
               <Pressable
@@ -74,7 +89,7 @@ export default function CueListScreen() {
                   <Text style={styles.meta} numberOfLines={1}>
                     <Text style={monoDigits}>{start}</Text>
                     {item.durationSeconds ? `  ·  ${formatDuration(item.durationSeconds).replace(/\.\d+$/, '')}` : ''}
-                    {`  ·  ${item.originalFileName}`}
+                    {item.section ? `  ·  of ${item.section.sourceName}` : `  ·  ${item.originalFileName}`}
                   </Text>
                 </View>
               </Pressable>

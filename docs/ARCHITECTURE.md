@@ -90,6 +90,15 @@ empty ──(cue imported)──▶ loading ──(decoded)──▶ armed ─�
   └───────────────────(last cue deleted)                  → take logged, take number +1
 ```
 
+## Sections
+
+`src/app/section.tsx` → `services/sections.ts`: the source song is decoded to PCM, the frames between
+the typed start and end are copied out, encoded as 16-bit WAV (`audio/wav.ts`) and saved as a new file.
+The new cue keeps a `section` record (source, start, end). Its file starts at 0, but every timecode
+shown or logged adds `section.startSeconds` (`cueTimecodeBase`), so the counter and the report read
+the original song's timecode. The section start is stored exactly as typed rather than snapped to a
+sample, which could otherwise round to the previous frame.
+
 ## Data & persistence
 
 - Everything (settings, cues, sessions, takes) lives in one zustand store persisted to

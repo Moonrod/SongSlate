@@ -15,6 +15,21 @@ export interface Cue {
   startMode: StartMode;
   /** Start point in seconds of song time. Only used when startMode === 'timecode'. */
   startSeconds: number;
+  /**
+   * Set when this cue's file was cut from another song. Its audio starts at
+   * `startSeconds` of the original, and the slate shows the original song's
+   * timecode so takes still line up with the full song in the edit.
+   */
+  section?: CueSection;
+}
+
+export interface CueSection {
+  sourceCueId: string;
+  sourceName: string;
+  sourceFileName: string;
+  /** Section start/end in the original song (seconds). */
+  startSeconds: number;
+  endSeconds: number;
 }
 
 export type StopGesture = 'tap' | 'longPress';
@@ -80,6 +95,8 @@ export interface TakeLog {
   /** Measured output latency the engine compensated for (ms). */
   outputLatencyMs: number;
   twoPop: boolean;
+  /** Original song file, when the cue was a section cut from it. */
+  sectionOf?: string;
   events: LogEvent[];
 }
 

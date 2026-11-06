@@ -86,6 +86,7 @@ export const REPORT_COLUMNS: { key: keyof ReportRow; title: string }[] = [
 export function takeToRow(take: TakeLog): ReportRow {
   const tc = (s: number) => formatTimecode(s, take.frameRate, take.dropFrame);
   const notes = [
+    take.sectionOf ? `Section of ${take.sectionOf}` : '',
     take.twoPop ? '2-pop' : '',
     ...take.events.map((e) => `${formatWallClock(e.at).slice(11)} ${describeEvent(e)}`),
   ].filter(Boolean);

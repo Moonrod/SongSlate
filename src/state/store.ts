@@ -60,6 +60,8 @@ export interface AppState {
 
   // cues
   addCues: (cues: Cue[]) => void;
+  /** Insert a cue right after another one (e.g. a section after its song). */
+  insertCueAfter: (afterId: string, cue: Cue) => void;
   updateCue: (id: string, patch: Partial<Cue>) => void;
   removeCue: (id: string) => void;
   moveCue: (id: string, delta: -1 | 1) => void;
@@ -94,6 +96,14 @@ export const useAppStore = create<AppState>()(
           cues: [...s.cues, ...cues],
           armedCueId: s.armedCueId ?? cues[0]?.id ?? null,
         })),
+
+      insertCueAfter: (afterId, cue) =>
+        set((s) => {
+          const idx = s.cues.findIndex((c) => c.id === afterId);
+          const cues = [...s.cues];
+          cues.splice(idx < 0 ? cues.length : idx + 1, 0, cue);
+          return { cues, armedCueId: s.armedCueId ?? cue.id };
+        }),
 
       updateCue: (id, patch) =>
         set((s) => ({ cues: s.cues.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),

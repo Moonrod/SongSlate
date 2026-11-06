@@ -11,6 +11,7 @@ import EditCueScreen from '../app/cue/[id]';
 import CueListScreen from '../app/cues';
 import SlateScreen from '../app/index';
 import ReportScreen from '../app/report';
+import NewSectionScreen from '../app/section';
 import SettingsScreen from '../app/settings';
 import { audioEngine } from '../audio/SlateAudioEngine';
 import { demoCue } from '../services/audioFiles.web';
@@ -23,6 +24,7 @@ const SCREENS: Record<RouteName, { component: ComponentType; title: string }> = 
   index: { component: SlateScreen, title: 'Slate' },
   cues: { component: CueListScreen, title: 'Cue List' },
   cue: { component: EditCueScreen, title: 'Edit Cue' },
+  section: { component: NewSectionScreen, title: 'New Section' },
   report: { component: ReportScreen, title: 'Report' },
   settings: { component: SettingsScreen, title: 'Settings' },
 };

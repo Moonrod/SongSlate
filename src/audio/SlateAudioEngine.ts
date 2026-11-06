@@ -232,6 +232,19 @@ class SlateAudioEngine {
     }
   }
 
+  /**
+   * Decode a file to PCM for editing (e.g. cutting a section). Re-uses the armed
+   * cue's buffer when it is the same file; otherwise decodes without touching
+   * the slate's cache.
+   */
+  async decodePcm(fileUri: string, fileName: string): Promise<{ sampleRate: number; channels: Float32Array[] }> {
+    await this.init();
+    const buffer = this.track?.key === fileUri ? this.track.buffer : await this.decode(fileUri, fileName);
+    const channels: Float32Array[] = [];
+    for (let c = 0; c < buffer.numberOfChannels; c++) channels.push(buffer.getChannelData(c));
+    return { sampleRate: buffer.sampleRate, channels };
+  }
+
   private async decode(fileUri: string, fileName: string): Promise<AudioBuffer> {
     const ctx = this.requireCtx();
     try {

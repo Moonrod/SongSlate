@@ -137,6 +137,19 @@ export async function pickAndImportAudio(): Promise<ImportResult> {
   return { cues, skipped };
 }
 
+/** Save audio the app generated (e.g. a section). Returns the stored file name. */
+export async function saveGeneratedAudio(bytes: Uint8Array, ext = 'wav'): Promise<string> {
+  const storedFileName = `${makeId('g_')}.${ext}`;
+  const blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: ext === 'wav' ? 'audio/wav' : 'application/octet-stream' });
+  try {
+    await withStore('readwrite', (s) => s.put(blob, storedFileName));
+  } catch {
+    // Not persisted, but still usable for this visit.
+  }
+  urls.set(storedFileName, URL.createObjectURL(blob));
+  return storedFileName;
+}
+
 export function deleteCueFile(cue: Pick<Cue, 'storedFileName'>) {
   if (cue.storedFileName === DEMO_STORED_NAME) return;
   const url = urls.get(cue.storedFileName);

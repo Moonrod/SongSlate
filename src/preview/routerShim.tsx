@@ -8,7 +8,7 @@
  */
 import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from 'react';
 
-export type RouteName = 'index' | 'cues' | 'cue' | 'report' | 'settings';
+export type RouteName = 'index' | 'cues' | 'cue' | 'section' | 'report' | 'settings';
 
 export interface PreviewRoute {
   key: string;
@@ -35,6 +35,7 @@ function toRoute(href: Href): PreviewRoute {
   else if (clean === 'cues') name = 'cues';
   else if (clean === 'report') name = 'report';
   else if (clean === 'settings') name = 'settings';
+  else if (clean === 'section') name = 'section';
   else if (clean.startsWith('cue/')) {
     name = 'cue';
     const id = clean.slice(4);

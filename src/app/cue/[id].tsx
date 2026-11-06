@@ -2,7 +2,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { FRAME_RATES, formatDuration, formatTimecode, parseTimecode } from '../../domain/timecode';
+import { cueTimecodeBase } from '../../domain/section';
+import { FRAME_RATES, formatDuration, formatTimecode, framesToSeconds, parseTimecode } from '../../domain/timecode';
 import type { StartMode } from '../../domain/types';
 import { deleteCueFile } from '../../services/audioFiles';
 import { useAppStore } from '../../state/store';
@@ -35,19 +36,30 @@ export default function EditCueScreen() {
     else setName(cue.name);
   };
 
-  const tcText = tcDraft ?? formatTimecode(cue.startSeconds, frameRate, dropFrame);
+  // Sections show and take the original song's timecode; startSeconds stays file-relative.
+  const base = cueTimecodeBase(cue);
+  const tcText = tcDraft ?? formatTimecode(base + cue.startSeconds, frameRate, dropFrame);
 
   const commitTimecode = () => {
     if (tcDraft == null) return;
-    const seconds = parseTimecode(tcDraft, frameRate, dropFrame);
-    if (seconds == null) {
+    const songSeconds = parseTimecode(tcDraft, frameRate, dropFrame);
+    if (songSeconds == null) {
       const maxFrame = FRAME_RATES[frameRate].timebase - 1;
       const sep = dropFrame && frameRate === '29.97' ? ';' : ':';
       setTcError(`Use HH:MM:SS${sep}FF (frames 00–${maxFrame}), MM:SS, or seconds.`);
       return;
     }
+    const seconds = songSeconds - base;
+    if (seconds < 0) {
+      setTcError(`This section starts at ${formatTimecode(base, frameRate, dropFrame)}.`);
+      return;
+    }
     if (cue.durationSeconds != null && seconds >= cue.durationSeconds) {
-      setTcError(`Start point is past the end of the song (${formatDuration(cue.durationSeconds)}).`);
+      setTcError(
+        cue.section
+          ? `This section ends at ${formatTimecode(cue.section.endSeconds, frameRate, dropFrame)}.`
+          : `Start point is past the end of the song (${formatDuration(cue.durationSeconds)}).`,
+      );
       return;
     }
     setTcError(null);
@@ -88,6 +100,17 @@ export default function EditCueScreen() {
         <Row label="File">
           <Text style={styles.value}>{cue.originalFileName}</Text>
         </Row>
+        {cue.section ? (
+          <Row label="Section of">
+            <Text style={[styles.value, monoDigits]}>
+              {`${cue.section.sourceName}\n${formatTimecode(cue.section.startSeconds, frameRate, dropFrame)} – ${formatTimecode(
+                cue.section.endSeconds,
+                frameRate,
+                dropFrame,
+              )}`}
+            </Text>
+          </Row>
+        ) : null}
         <Row label="Duration">
           <Text style={[styles.value, monoDigits]}>
             {cue.durationSeconds != null
@@ -104,7 +127,7 @@ export default function EditCueScreen() {
         <Row label="Play">
           <Segmented<StartMode>
             options={[
-              { value: 'full', label: 'FULL SONG' },
+              { value: 'full', label: cue.section ? 'WHOLE SECTION' : 'FULL SONG' },
               { value: 'timecode', label: 'FROM TIMECODE' },
             ]}
             value={cue.startMode}
@@ -124,7 +147,11 @@ export default function EditCueScreen() {
               style={[styles.input, monoDigits, { fontSize: 22 }]}
               keyboardType="numbers-and-punctuation"
               autoCorrect={false}
-              placeholder="00:01:12:00"
+              placeholder={formatTimecode(
+                base + framesToSeconds(FRAME_RATES[frameRate].timebase * 72, frameRate),
+                frameRate,
+                dropFrame,
+              )}
               placeholderTextColor={colors.textDim}
               returnKeyType="done"
             />
@@ -142,6 +169,10 @@ export default function EditCueScreen() {
             armCue(cue.id);
             router.dismissTo('/');
           }}
+        />
+        <Button
+          title="✂︎ Cut a section from this"
+          onPress={() => router.push({ pathname: '/section', params: { sourceId: cue.id } })}
         />
         <Button title="Delete cue" variant="danger" onPress={onDelete} />
       </View>

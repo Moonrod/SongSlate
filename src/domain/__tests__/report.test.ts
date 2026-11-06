@@ -96,6 +96,15 @@ describe('takeToRow', () => {
     expect(row.notes).toBe('2-pop; 14:03:57.415 Audio interruption began');
   });
 
+  it('notes when a take played a section of a song', () => {
+    const row = takeToRow(
+      makeTake({ startMode: 'timecode', startSeconds: 72, stopSeconds: 102, durationSeconds: 30, sectionOf: 'song.wav' }),
+    );
+    expect(row.startPoint).toBe('00:01:12:00');
+    expect(row.stopTc).toBe('00:01:42:00');
+    expect(row.notes).toBe('Section of song.wav');
+  });
+
   it('labels drop-frame takes', () => {
     expect(takeToRow(makeTake({ frameRate: '29.97', dropFrame: true })).frameRate).toBe('29.97 DF');
     expect(takeToRow(makeTake({ frameRate: '29.97', dropFrame: false })).frameRate).toBe('29.97');

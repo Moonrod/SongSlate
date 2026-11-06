@@ -100,6 +100,15 @@ export async function pickAndImportAudio(): Promise<ImportResult> {
   return { cues, skipped };
 }
 
+/** Save audio the app generated (e.g. a section). Returns the stored file name. */
+export async function saveGeneratedAudio(bytes: Uint8Array, ext = 'wav'): Promise<string> {
+  const storedFileName = `${makeId('g_')}.${ext}`;
+  const file = new File(audioDir(), storedFileName);
+  file.create();
+  await file.write(bytes);
+  return storedFileName;
+}
+
 export function deleteCueFile(cue: Pick<Cue, 'storedFileName'>) {
   try {
     const f = new File(audioDir(), cue.storedFileName);

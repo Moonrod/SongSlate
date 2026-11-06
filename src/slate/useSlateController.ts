@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { audioEngine, type EngineEvent } from '../audio/SlateAudioEngine';
+import { cueTimecodeBase } from '../domain/section';
 import { FRAME_RATES, formatTimecode } from '../domain/timecode';
 import type { Cue, EndReason, LogEvent, LogEventType } from '../domain/types';
 import { cueFileExists, cueFileUri } from '../services/audioFiles';
@@ -23,7 +24,10 @@ interface RunningTake {
   cue: Cue;
   flipPerfMs: number;
   flipEpochMs: number;
+  /** Position in the audio file at the flip. */
   offsetSeconds: number;
+  /** Song-time offset of the file (a section's start in its original song; 0 otherwise). */
+  tcBase: number;
   durationSeconds: number;
   outputLatencyMs: number;
   events: LogEvent[];
@@ -113,14 +117,20 @@ export function useSlateController() {
       if (remaining <= FLIP_TOLERANCE_MS) {
         t.flipped = true;
         t.flipEpochMs = Date.now();
-        update({ phase: 'playing', countdown: null, timecode: formatTimecode(t.offsetSeconds, frameRate, dropFrame) });
+        update({
+          phase: 'playing',
+          countdown: null,
+          timecode: formatTimecode(t.tcBase + t.offsetSeconds, frameRate, dropFrame),
+        });
       } else {
         const showCountdown = useAppStore.getState().settings.countdownSeconds > 0;
         update({ countdown: showCountdown ? Math.max(1, Math.ceil(remaining / 1000)) : null });
       }
     } else {
       const pos = audioEngine.getSongPosition();
-      if (pos != null) update({ timecode: formatTimecode(Math.max(t.offsetSeconds, pos), frameRate, dropFrame) });
+      if (pos != null) {
+        update({ timecode: formatTimecode(t.tcBase + Math.max(t.offsetSeconds, pos), frameRate, dropFrame) });
+      }
     }
     raf.current = requestAnimationFrame(() => loop.current?.());
   }, [update]);
@@ -146,9 +156,10 @@ export function useSlateController() {
           cueId: t.cue.id,
           cueName: t.cue.name,
           fileName: t.cue.originalFileName,
-          startMode: t.cue.startMode,
-          startSeconds: t.offsetSeconds,
-          stopSeconds: stopPos,
+          // Logged in song time: for a section, the original song's timecode.
+          startMode: t.tcBase > 0 ? 'timecode' : t.cue.startMode,
+          startSeconds: t.tcBase + t.offsetSeconds,
+          stopSeconds: t.tcBase + stopPos,
           flipEpochMs: t.flipEpochMs,
           stopEpochMs: Date.now(),
           durationSeconds: stopPos - t.offsetSeconds,
@@ -158,6 +169,7 @@ export function useSlateController() {
           latencyOffsetMs: settings.latencyOffsetMs,
           outputLatencyMs: t.outputLatencyMs,
           twoPop: settings.twoPop,
+          sectionOf: t.cue.section?.sourceFileName,
           events: t.events,
         });
       } else {
@@ -198,6 +210,7 @@ export function useSlateController() {
         flipPerfMs: scheduled.flipPerfMs,
         flipEpochMs: 0,
         offsetSeconds: scheduled.offsetSeconds,
+        tcBase: cueTimecodeBase(cue),
         durationSeconds: scheduled.durationSeconds,
         outputLatencyMs: scheduled.outputLatencyMs,
         events: [],
