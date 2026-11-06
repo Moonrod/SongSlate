@@ -98,6 +98,25 @@ them first with `npx eas-cli@latest device:create`.
 > Native config lives in `app.json` (Continuous Native Generation). `ios/` and `android/` are
 > generated and git-ignored. Run `npm run prebuild` to regenerate them after changing plugins.
 
+## Browser preview
+
+To try the screens and flow without a phone build:
+
+```bash
+npm run preview:web
+```
+
+This writes a static site to `dist-preview/site`. Serve it with any static server:
+
+```bash
+npx serve dist-preview/site
+```
+
+The preview runs the same screens with an in-memory navigator in place of expo-router (`src/preview/`,
+switched on by `SYNCSLATE_WEB_PREVIEW=1` in `metro.config.js`). It includes a 120 BPM demo click
+track. Imported audio is kept in the browser's storage. Export CSV copies to the clipboard; PDF export
+is phone-only. Browser audio timing says nothing about a phone's, so calibrate sync on the device.
+
 ## Release builds
 
 One-time setup:

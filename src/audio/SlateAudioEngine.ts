@@ -132,7 +132,9 @@ class SlateAudioEngine {
 
     this.ctx = new AudioContext({ latencyHint: 'interactive' });
     this.ctx.onerror = () => this.emit({ type: 'error', message: 'Audio context error' });
-    await this.wake();
+    // Warm the output, but don't block start-up on it: browsers keep audio
+    // suspended until the first tap, and decoding cues doesn't need it running.
+    await Promise.race([this.wake(), new Promise((r) => setTimeout(r, 1000))]);
   }
 
   subscribe(listener: (e: EngineEvent) => void): () => void {
@@ -162,6 +164,19 @@ class SlateAudioEngine {
       await ctx.resume();
     }
     await this.waitForClock();
+  }
+
+  /**
+   * Browsers only let audio start from inside a user gesture. Call this
+   * synchronously from a tap handler (the web preview does it on every
+   * pointerdown) so the context is already running when a take is scheduled.
+   * Harmless on native.
+   */
+  unlock(): void {
+    const ctx = this.ctx;
+    if (ctx && ctx.state !== 'running') {
+      ctx.resume().catch(() => {});
+    }
   }
 
   /** Put the output to sleep while backgrounded and idle (saves battery). */
