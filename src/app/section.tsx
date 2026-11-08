@@ -1,63 +1,116 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { audioEngine } from '../audio/SlateAudioEngine';
+import { cueDotEmoji } from '../domain/dots';
 import { cueTimecodeBase, nextSectionIndex, sectionName, validateSection } from '../domain/section';
-import { FRAME_RATES, formatDuration, formatTimecode, framesToSeconds, parseTimecode } from '../domain/timecode';
+import { FRAME_RATES, formatDuration, formatSlateTimecode, framesToSeconds, secondsToFrames } from '../domain/timecode';
+import { cueFileUri } from '../services/audioFiles';
 import { createSection } from '../services/sections';
 import { useAppStore } from '../state/store';
-import { Button, Row, Section } from '../ui/controls';
+import { Button, Section } from '../ui/controls';
+import { ScrubBar } from '../ui/ScrubBar';
 import { colors, monoDigits } from '../ui/theme';
 
-/** Cut part of an imported song into a new, named audio file that becomes its own cue. */
+type LengthChoice = 15 | 30 | 45 | 60 | 'custom';
+const LENGTHS: { value: LengthChoice; label: string }[] = [
+  { value: 15, label: ':15' },
+  { value: 30, label: ':30' },
+  { value: 45, label: ':45' },
+  { value: 60, label: '1:00' },
+  { value: 'custom', label: 'Custom' },
+];
+
+/**
+ * Cut part of an imported song into a new, named audio file that becomes its own cue.
+ * Pick the start by dragging along the song, then tap a length (or set a custom end).
+ */
 export default function NewSectionScreen() {
   const { sourceId } = useLocalSearchParams<{ sourceId: string }>();
   const cues = useAppStore((s) => s.cues);
   const { frameRate, dropFrame } = useAppStore((s) => s.settings);
 
-  const [selectedId, setSelectedId] = useState<string | null>(sourceId ?? null);
-  const [startText, setStartText] = useState('');
-  const [endText, setEndText] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(sourceId ?? cues[0]?.id ?? null);
+  const [start, setStart] = useState(0);
+  const [lengthChoice, setLengthChoice] = useState<LengthChoice>(30);
+  const [customEnd, setCustomEnd] = useState(30);
   const [name, setName] = useState('');
-  const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [unreadableId, setUnreadableId] = useState<string | null>(null);
 
   const source = cues.find((c) => c.id === selectedId) ?? null;
   const base = source ? cueTimecodeBase(source) : 0;
   const songEnd = source?.durationSeconds != null ? base + source.durationSeconds : null;
+  const unreadable = source != null && unreadableId === source.id;
+  const measuring = source != null && songEnd == null && !unreadable;
 
-  const start = startText.trim() ? parseTimecode(startText, frameRate, dropFrame) : null;
-  const end = endText.trim() ? parseTimecode(endText, frameRate, dropFrame) : null;
-  const length = start != null && end != null && end > start ? end - start : null;
+  // The song's length is needed to draw the bar. Read it if it isn't known yet.
+  useEffect(() => {
+    if (!source || source.durationSeconds != null) return;
+    let cancelled = false;
+    audioEngine
+      .getDuration(cueFileUri(source), source.originalFileName)
+      .then((d) => {
+        if (!cancelled) useAppStore.getState().updateCue(source.id, { durationSeconds: d });
+      })
+      .catch(() => {
+        if (!cancelled) setUnreadableId(source.id);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source]);
 
-  const tcHelp = `HH:MM:SS${dropFrame && frameRate === '29.97' ? ';' : ':'}FF at ${frameRate} fps (frames 00–${
-    FRAME_RATES[frameRate].timebase - 1
-  }), MM:SS, or seconds`;
+  // Timecode helpers at the project frame rate.
+  const tc = (s: number) => formatSlateTimecode(s, frameRate, dropFrame);
+  const frame = framesToSeconds(1, frameRate);
+  const tcSeconds = (n: number) => framesToSeconds(FRAME_RATES[frameRate].timebase * n, frameRate);
+  /** Snap to a whole timecode second (dragging), or to a frame (nudges). */
+  const snapSecond = (s: number) =>
+    tcSeconds(Math.round(secondsToFrames(s + frame / 2, frameRate) / FRAME_RATES[frameRate].timebase));
+  const snapFrame = (s: number) => framesToSeconds(Math.round(s / frame), frameRate);
+  const clampTo = (s: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, s));
 
-  let error: string | null = null;
-  if (!source) error = 'Pick a song.';
-  else if (startText.trim() && start == null) error = `Start timecode isn't valid. Use ${tcHelp}.`;
-  else if (endText.trim() && end == null) error = `End timecode isn't valid. Use ${tcHelp}.`;
-  else if (start != null && start < base) error = `This cue starts at ${formatTimecode(base, frameRate, dropFrame)}.`;
-  else error = validateSection(start, end, songEnd);
+  const lastStart = songEnd != null ? songEnd - 0.5 : base;
+  const startClamped = clampTo(start, base, lastStart);
+  const wantedEnd = lengthChoice === 'custom' ? customEnd : startClamped + tcSeconds(lengthChoice);
+  const end = songEnd != null ? Math.min(wantedEnd, songEnd) : wantedEnd;
+  const shortened = lengthChoice !== 'custom' && songEnd != null && wantedEnd > songEnd;
+  const length = end - startClamped;
+  const error = !source ? 'Pick a song.' : validateSection(startClamped, end, songEnd);
+  const placeholder = sectionName(nextSectionIndex(cues), length > 0 ? length : 30);
 
-  // The hint follows the naming convention with the next free number and the real length.
-  const placeholder = sectionName(nextSectionIndex(cues), length ?? 30);
+  const pickSource = (id: string) => {
+    setSelectedId(id);
+    const c = cues.find((x) => x.id === id);
+    const b = c ? cueTimecodeBase(c) : 0;
+    setStart(b);
+    setCustomEnd(b + tcSeconds(30));
+  };
+
+  const setStartTo = (s: number) => {
+    const next = clampTo(s, base, lastStart);
+    setStart(next);
+    if (lengthChoice === 'custom' && customEnd <= next) setCustomEnd(Math.min(songEnd ?? next + 30, next + tcSeconds(30)));
+  };
+  const setEndTo = (s: number) => setCustomEnd(clampTo(s, startClamped + 0.5, songEnd ?? s));
 
   const onCreate = async () => {
-    setTouched(true);
-    if (error || !source || start == null || end == null) return;
+    if (error || !source) {
+      Alert.alert('Check the section', error ?? 'Pick a song.');
+      return;
+    }
     setBusy(true);
     try {
       const finalName = name.trim() || placeholder;
-      const cue = await createSection({ source, startSeconds: start, endSeconds: end, name: finalName });
+      const cue = await createSection({ source, startSeconds: startClamped, endSeconds: end, name: finalName });
       useAppStore.getState().insertCueAfter(source.id, cue);
       router.dismissTo('/cues');
       Alert.alert(
         'Section created',
         `"${finalName}" (${formatDuration(cue.durationSeconds ?? 0)}) is in your cue list after "${source.name}". ` +
-          `When it plays, the slate counter starts at ${formatTimecode(cue.section!.startSeconds, frameRate, dropFrame)}, ` +
-          `matching "${cue.section!.sourceName}".`,
+          `When it plays, the slate counter starts at ${tc(cue.section!.startSeconds)}, matching "${cue.section!.sourceName}".`,
       );
     } catch (e: any) {
       Alert.alert('Could not create the section', e?.message ?? String(e));
@@ -66,79 +119,136 @@ export default function NewSectionScreen() {
     }
   };
 
+  const nudges = (onNudge: (delta: number) => void, label: string) => (
+    <View style={styles.nudges} accessibilityLabel={label}>
+      {[
+        { t: '−1s', d: -tcSeconds(1) },
+        { t: '−1f', d: -frame },
+        { t: '+1f', d: frame },
+        { t: '+1s', d: tcSeconds(1) },
+      ].map((n) => (
+        <Pressable
+          key={n.t}
+          accessibilityRole="button"
+          accessibilityLabel={`${label} ${n.t}`}
+          onPress={() => onNudge(n.d)}
+          style={({ pressed }) => [styles.nudge, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={[styles.nudgeText, monoDigits]}>{n.t}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+
+  const ready = source != null && songEnd != null;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ padding: 16, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
-      <Section title="1. Song">
+      <Section title="Song">
         {cues.length === 0 ? (
           <Text style={styles.empty}>Import a song first (Cue List → + Import).</Text>
         ) : (
-          cues.map((c) => {
+          cues.map((c, i) => {
             const selected = c.id === selectedId;
-            const cBase = cueTimecodeBase(c);
             return (
               <Pressable
                 key={c.id}
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
-                onPress={() => setSelectedId(c.id)}
+                onPress={() => pickSource(c.id)}
                 style={({ pressed }) => [styles.songRow, pressed && { opacity: 0.7 }]}
               >
                 <View style={[styles.radio, selected && styles.radioOn]}>{selected ? <View style={styles.radioDot} /> : null}</View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.songName} numberOfLines={1}>
-                    {c.name}
-                  </Text>
-                  <Text style={[styles.songMeta, monoDigits]} numberOfLines={1}>
-                    {c.durationSeconds != null
-                      ? `${formatTimecode(cBase, frameRate, dropFrame)} – ${formatTimecode(cBase + c.durationSeconds, frameRate, dropFrame)}`
-                      : 'Length unknown until armed or cut'}
-                    {`  ·  ${c.originalFileName}`}
-                  </Text>
-                </View>
+                <Text style={styles.songName} numberOfLines={1}>
+                  {`${cueDotEmoji(c, i)} ${c.name}`}
+                </Text>
+                <Text style={[styles.songMeta, monoDigits]}>
+                  {c.durationSeconds != null ? formatDuration(c.durationSeconds).replace(/\.\d+$/, '') : ''}
+                </Text>
               </Pressable>
             );
           })
         )}
       </Section>
 
-      <Section title="2. Section" footer={`Song timecode, as on the slate. ${tcHelp}.`}>
-        <Row label="Start">
-          <TextInput
-            value={startText}
-            onChangeText={setStartText}
-            style={[styles.input, monoDigits]}
-            placeholder={formatTimecode(base, frameRate, dropFrame)}
-            placeholderTextColor={colors.textDim}
-            keyboardType="numbers-and-punctuation"
-            autoCorrect={false}
-            returnKeyType="next"
+      <Section title="Start" footer="Drag along the song (snaps to whole seconds), then fine-tune by frames.">
+        <View style={styles.block}>
+          <Text style={[styles.bigTc, monoDigits]}>{tc(startClamped)}</Text>
+          <ScrubBar
+            min={base}
+            max={songEnd ?? base + 1}
+            value={startClamped}
+            region={ready ? { start: startClamped, end } : undefined}
+            onChange={(v) => setStartTo(snapSecond(v))}
+            disabled={!ready}
+            accessibilityLabel="Section start in the song"
           />
-        </Row>
-        <Row label="End">
-          <TextInput
-            value={endText}
-            onChangeText={setEndText}
-            style={[styles.input, monoDigits]}
-            placeholder={formatTimecode(
-              base + framesToSeconds(FRAME_RATES[frameRate].timebase * 30, frameRate),
-              frameRate,
-              dropFrame,
-            )}
-            placeholderTextColor={colors.textDim}
-            keyboardType="numbers-and-punctuation"
-            autoCorrect={false}
-            returnKeyType="next"
-          />
-        </Row>
-        <Row label="Length">
-          <Text style={[styles.value, monoDigits]}>
-            {length != null ? `${formatTimecode(length, frameRate, dropFrame)}  (${formatDuration(length)})` : '—'}
-          </Text>
-        </Row>
+          <View style={styles.scale}>
+            <Text style={[styles.scaleText, monoDigits]}>{tc(base)}</Text>
+            <Text style={[styles.scaleText, unreadable && { color: colors.warn }]}>
+              {measuring ? 'Reading song length…' : unreadable ? 'Couldn’t read this file' : ''}
+            </Text>
+            <Text style={[styles.scaleText, monoDigits]}>{songEnd != null ? tc(songEnd) : '—'}</Text>
+          </View>
+          {nudges((d) => setStartTo(snapFrame(startClamped + d)), 'Start')}
+        </View>
       </Section>
 
-      <Section title="3. Name" footer="Leave it empty to use the suggested name.">
-        <Row label="New file name">
+      <Section title="Length">
+        <View style={styles.block}>
+          <View style={styles.chips}>
+            {LENGTHS.map((l) => {
+              const on = l.value === lengthChoice;
+              return (
+                <Pressable
+                  key={String(l.value)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  onPress={() => {
+                    if (l.value === 'custom') setCustomEnd(end);
+                    setLengthChoice(l.value);
+                  }}
+                  style={[styles.chip, on && styles.chipOn]}
+                >
+                  <Text style={[styles.chipText, on && styles.chipTextOn, monoDigits]}>{l.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {lengthChoice === 'custom' ? (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.label}>END</Text>
+              <Text style={[styles.bigTc, monoDigits]}>{tc(end)}</Text>
+              <ScrubBar
+                min={base}
+                max={songEnd ?? base + 1}
+                value={end}
+                region={ready ? { start: startClamped, end } : undefined}
+                onChange={(v) => setEndTo(snapSecond(v))}
+                disabled={!ready}
+                accessibilityLabel="Section end in the song"
+              />
+              {nudges((d) => setEndTo(snapFrame(end + d)), 'End')}
+            </View>
+          ) : null}
+          <View style={styles.readouts}>
+            {[
+              ['START', tc(startClamped)],
+              ['END', tc(end)],
+              ['LENGTH', length > 0 ? tc(length) : '—'],
+            ].map(([k, v]) => (
+              <View key={k} style={styles.readout}>
+                <Text style={styles.label}>{k}</Text>
+                <Text style={[styles.readoutValue, monoDigits, k === 'LENGTH' && { color: colors.slateGreen }]}>{v}</Text>
+              </View>
+            ))}
+          </View>
+          {shortened ? <Text style={styles.note}>Shortened to the end of the song.</Text> : null}
+        </View>
+      </Section>
+
+      <Section title="Name" footer="Leave it empty to use the suggested name.">
+        <View style={styles.block}>
           <TextInput
             value={name}
             onChangeText={setName}
@@ -147,16 +257,16 @@ export default function NewSectionScreen() {
             placeholderTextColor={colors.textDim}
             autoCorrect={false}
             returnKeyType="done"
-            onSubmitEditing={onCreate}
+            accessibilityLabel="New file name"
           />
-        </Row>
+        </View>
       </Section>
 
-      {touched && error ? <Text style={styles.error}>{error}</Text> : null}
+      {source && error && ready ? <Text style={styles.error}>{error}</Text> : null}
       <Button
         title={busy ? 'Creating…' : 'Create section'}
         variant="primary"
-        disabled={busy || cues.length === 0}
+        disabled={busy || !ready || !!error}
         onPress={onCreate}
       />
     </ScrollView>
@@ -166,6 +276,7 @@ export default function NewSectionScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   empty: { color: colors.textDim, fontSize: 15, paddingVertical: 14 },
+  block: { paddingVertical: 14, gap: 10 },
   songRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,11 +296,45 @@ const styles = StyleSheet.create({
   },
   radioOn: { borderColor: colors.accent },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
-  songName: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  songMeta: { color: colors.textDim, fontSize: 13, marginTop: 2 },
-  input: {
+  songName: { color: colors.text, fontSize: 16, fontWeight: '700', flex: 1 },
+  songMeta: { color: colors.textDim, fontSize: 13 },
+  bigTc: { color: colors.text, fontSize: 34, fontWeight: '800', textAlign: 'center' },
+  scale: { flexDirection: 'row', justifyContent: 'space-between' },
+  scaleText: { color: colors.textDim, fontSize: 12 },
+  nudges: { flexDirection: 'row', gap: 6 },
+  nudge: {
     flex: 1,
-    minWidth: 200,
+    minHeight: 44,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nudgeText: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    flexGrow: 1,
+    minWidth: 56,
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  chipOn: { borderColor: colors.slateGreen },
+  chipText: { color: colors.text, fontSize: 16, fontWeight: '700' },
+  chipTextOn: { color: colors.slateGreen },
+  label: { color: colors.textDim, fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  readouts: { flexDirection: 'row', gap: 6 },
+  readout: { flex: 1, backgroundColor: colors.surfaceAlt, borderRadius: 10, padding: 10, gap: 4 },
+  readoutValue: { color: colors.text, fontSize: 16, fontWeight: '700' },
+  note: { color: colors.warn, fontSize: 13 },
+  input: {
     color: colors.text,
     fontSize: 18,
     paddingVertical: 10,
@@ -199,6 +344,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  value: { color: colors.textDim, fontSize: 15 },
   error: { color: colors.warn, fontSize: 14, marginBottom: 12, marginHorizontal: 4 },
 });

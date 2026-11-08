@@ -6,6 +6,7 @@ import {
   AudioContext,
   AudioManager,
   GainNode,
+  getAudioDuration,
   OscillatorNode,
 } from 'react-native-audio-api';
 
@@ -230,6 +231,20 @@ class SlateAudioEngine {
       if (this.loading?.key === key) this.loading = null;
       throw e;
     }
+  }
+
+  /** Length of a file in seconds, without disturbing the slate's loaded cue where possible. */
+  async getDuration(fileUri: string, fileName: string): Promise<number> {
+    await this.init();
+    if (this.track?.key === fileUri) return this.track.buffer.duration;
+    try {
+      const d = await getAudioDuration(fileUri);
+      if (Number.isFinite(d) && d > 0) return d;
+    } catch {
+      // Fall back to decoding (e.g. AIFF on Android).
+    }
+    const pcm = await this.decodePcm(fileUri, fileName);
+    return (pcm.channels[0]?.length ?? 0) / pcm.sampleRate;
   }
 
   /**
