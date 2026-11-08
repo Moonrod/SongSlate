@@ -144,13 +144,19 @@ export default function EditCueScreen() {
         footer={`Timecode is song position at ${frameRate} fps${dropFrame && frameRate === '29.97' ? ' drop-frame' : ''}. The slate counter starts here at the green flip.`}
       >
         <Row label="Play">
-          <Segmented<StartMode>
+          <Segmented<StartMode | 'cut'>
+            stretch
             options={[
               { value: 'full', label: cue.section ? 'WHOLE SECTION' : 'FULL SONG' },
+              // Not a play mode: opens New Section with this song picked.
+              { value: 'cut', label: '✂︎ CUT A SECTION' },
               { value: 'timecode', label: 'FROM TIMECODE' },
             ]}
             value={cue.startMode}
-            onChange={(startMode) => updateCue(cue.id, { startMode })}
+            onChange={(choice) => {
+              if (choice === 'cut') router.push({ pathname: '/section', params: { sourceId: cue.id } });
+              else updateCue(cue.id, { startMode: choice });
+            }}
           />
         </Row>
         {cue.startMode === 'timecode' ? (
@@ -188,10 +194,6 @@ export default function EditCueScreen() {
             armCue(cue.id);
             router.dismissTo('/');
           }}
-        />
-        <Button
-          title="✂︎ Cut a section from this"
-          onPress={() => router.push({ pathname: '/section', params: { sourceId: cue.id } })}
         />
         <Button title="Delete cue" variant="danger" onPress={onDelete} />
       </View>

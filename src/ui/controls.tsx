@@ -39,14 +39,17 @@ export function Segmented<T extends string>({
   options,
   value,
   onChange,
+  stretch,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
+  /** Fill the row, with equal-width segments whose labels may wrap to two lines. */
+  stretch?: boolean;
 }) {
   return (
-    <View style={styles.segmented}>
-      {options.map((o) => {
+    <View style={[styles.segmented, stretch && styles.segmentedStretch]}>
+      {options.map((o, i) => {
         const selected = o.value === value;
         return (
           <Pressable
@@ -54,9 +57,19 @@ export function Segmented<T extends string>({
             accessibilityRole="button"
             accessibilityState={{ selected }}
             onPress={() => onChange(o.value)}
-            style={[styles.segment, selected && styles.segmentSelected]}
+            style={[
+              styles.segment,
+              stretch && styles.segmentStretch,
+              stretch && i > 0 && styles.segmentDivider,
+              selected && styles.segmentSelected,
+            ]}
           >
-            <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{o.label}</Text>
+            <Text
+              style={[styles.segmentText, stretch && styles.segmentTextStretch, selected && styles.segmentTextSelected]}
+              numberOfLines={stretch ? 2 : undefined}
+            >
+              {o.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -146,6 +159,10 @@ const styles = StyleSheet.create({
   },
   segment: { paddingHorizontal: 12, paddingVertical: 10, minHeight: 40, justifyContent: 'center' },
   segmentSelected: { backgroundColor: colors.accent },
+  segmentedStretch: { width: '100%', flexWrap: 'nowrap' },
+  segmentStretch: { flex: 1, paddingHorizontal: 6, alignItems: 'center', minHeight: 48 },
+  segmentTextStretch: { textAlign: 'center', fontSize: 14 },
+  segmentDivider: { borderLeftWidth: 1, borderLeftColor: colors.border },
   segmentText: { color: colors.textDim, fontSize: 15, fontWeight: '600' },
   segmentTextSelected: { color: '#fff' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
