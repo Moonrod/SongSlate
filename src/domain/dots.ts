@@ -1,9 +1,9 @@
 import type { Cue } from './types';
 
 /**
- * Markers shown in front of a cue's title on the slate. Each cue gets its own,
- * so no two cues share one. There is no green: it would vanish on the green
- * screen. Coloured squares follow the dots so more than eight cues stay unique.
+ * Coloured dots shown in front of a cue's title on the slate. Each cue gets its
+ * own, so no two cues share one. There is no green: it would vanish on the green
+ * screen. With more than eight cues, dots have to repeat.
  */
 export const DOTS = [
   { id: 'red', emoji: '🔴', label: 'Red dot' },
@@ -14,21 +14,13 @@ export const DOTS = [
   { id: 'brown', emoji: '🟤', label: 'Brown dot' },
   { id: 'black', emoji: '⚫', label: 'Black dot' },
   { id: 'white', emoji: '⚪', label: 'White dot' },
-  { id: 'sq-red', emoji: '🟥', label: 'Red square' },
-  { id: 'sq-orange', emoji: '🟧', label: 'Orange square' },
-  { id: 'sq-yellow', emoji: '🟨', label: 'Yellow square' },
-  { id: 'sq-blue', emoji: '🟦', label: 'Blue square' },
-  { id: 'sq-purple', emoji: '🟪', label: 'Purple square' },
-  { id: 'sq-brown', emoji: '🟫', label: 'Brown square' },
-  { id: 'sq-black', emoji: '⬛', label: 'Black square' },
-  { id: 'sq-white', emoji: '⬜', label: 'White square' },
 ] as const;
 
 export type DotId = (typeof DOTS)[number]['id'];
 
 const isDotId = (id: unknown): id is DotId => DOTS.some((d) => d.id === id);
 
-/** First marker not already used. If all are taken, markers start repeating. */
+/** First dot not already used. With more than eight cues, dots start repeating. */
 export function firstFreeDot(used: ReadonlySet<string>): DotId {
   const free = DOTS.find((d) => !used.has(d.id));
   return (free ?? DOTS[used.size % DOTS.length]).id;
@@ -48,9 +40,11 @@ export function assignUniqueDots<T extends Pick<Cue, 'dot'>>(cues: T[]): T[] {
     }
     return false;
   });
+  let overflow = 0; // past eight cues, repeats cycle through the colours
   return cues.map((c, i) => {
     if (keep[i]) return c;
-    const dot = firstFreeDot(used);
+    const free = DOTS.find((d) => !used.has(d.id));
+    const dot = free ? free.id : DOTS[overflow++ % DOTS.length].id;
     used.add(dot);
     return { ...c, dot };
   });

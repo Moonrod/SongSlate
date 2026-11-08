@@ -6,6 +6,8 @@ describe('cue markers', () => {
     expect(DOTS.some((d) => d.id.includes('green'))).toBe(false);
     expect(emojis).not.toContain('🟢');
     expect(emojis).not.toContain('🟩');
+    expect(DOTS).toHaveLength(8);
+    expect(emojis.every((e) => !['🟥', '🟧', '🟨', '🟦', '🟪', '🟫', '⬛', '⬜'].includes(e))).toBe(true);
     expect(new Set(DOTS.map((d) => d.emoji)).size).toBe(DOTS.length);
   });
 
@@ -34,6 +36,13 @@ describe('cue markers', () => {
     expect(new Set(cues.map((c) => c.dot)).size).toBe(DOTS.length);
   });
 
+  it('repeats colours in order once there are more than eight cues', () => {
+    const cues = assignUniqueDots(Array.from({ length: 10 }, (): { dot?: DotId } => ({})));
+    expect(new Set(cues.slice(0, 8).map((c) => c.dot)).size).toBe(8);
+    expect(cues[8].dot).toBe('red');
+    expect(cues[9].dot).toBe('orange');
+  });
+
   it('reports markers used by other cues', () => {
     const used = dotsInUse([{ id: 'a', dot: 'red' }, { id: 'b', dot: 'blue' }], 'a');
     expect([...used]).toEqual(['blue']);
@@ -41,6 +50,11 @@ describe('cue markers', () => {
 
   it('maps a marker to its emoji', () => {
     expect(cueDotEmoji({ dot: 'blue' })).toBe('🔵');
-    expect(cueDotEmoji({ dot: 'sq-red' })).toBe('🟥');
+    expect(cueDotEmoji({ dot: 'sq-red' as never })).toBe('⚪'); // retired square
+  });
+
+  it('replaces retired squares with free dots', () => {
+    const cues = assignUniqueDots([{ dot: 'red' as const }, { dot: 'sq-red' as never }]);
+    expect(cues.map((c) => c.dot)).toEqual(['red', 'orange']);
   });
 });

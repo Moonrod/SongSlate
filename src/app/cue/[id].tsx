@@ -110,7 +110,7 @@ export default function EditCueScreen() {
               returnKeyType="done"
             />
           </Row>
-          <Row label="Marker (shown before the title on the slate; each cue has its own)">
+          <Row label="Colour dot (shown before the title on the slate; each cue has its own)">
             {DOTS.map((d) => {
               const selected = cue.dot === d.id;
               const taken = !selected && dotsInUse(allCues, cue.id).has(d.id);
