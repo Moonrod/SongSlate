@@ -12,6 +12,7 @@ export function ScrubBar({
   max,
   value,
   region,
+  outerRegion,
   onChange,
   disabled,
   accessibilityLabel,
@@ -20,6 +21,8 @@ export function ScrubBar({
   max: number;
   value: number;
   region?: { start: number; end: number };
+  /** Lighter band around the region (e.g. pre-roll/run-out buffer). */
+  outerRegion?: { start: number; end: number };
   onChange: (value: number) => void;
   disabled?: boolean;
   accessibilityLabel: string;
@@ -59,6 +62,15 @@ export function ScrubBar({
       onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
       {...responder.panHandlers}
     >
+      {outerRegion ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.outer,
+            { left: pct(outerRegion.start), width: `${Math.max(0, ((outerRegion.end - outerRegion.start) / span) * 100)}%` },
+          ]}
+        />
+      ) : null}
       {region ? (
         <View
           pointerEvents="none"
@@ -79,6 +91,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
     justifyContent: 'center',
+  },
+  outer: {
+    position: 'absolute',
+    top: 8,
+    bottom: 8,
+    backgroundColor: 'rgba(0, 200, 83, 0.14)',
   },
   region: {
     position: 'absolute',

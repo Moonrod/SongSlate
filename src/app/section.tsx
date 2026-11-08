@@ -4,7 +4,14 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { audioEngine } from '../audio/SlateAudioEngine';
 import { cueDotEmoji } from '../domain/dots';
-import { cueTimecodeBase, nextSectionIndex, sectionName, validateSection } from '../domain/section';
+import {
+  applySectionBuffer,
+  cueTimecodeBase,
+  nextSectionIndex,
+  SECTION_BUFFER_SECONDS,
+  sectionName,
+  validateSection,
+} from '../domain/section';
 import { FRAME_RATES, formatDuration, formatSlateTimecode, framesToSeconds, secondsToFrames } from '../domain/timecode';
 import { cueFileUri } from '../services/audioFiles';
 import { createSection } from '../services/sections';
@@ -36,6 +43,7 @@ export default function NewSectionScreen() {
   const [lengthChoice, setLengthChoice] = useState<LengthChoice>(30);
   const [customEnd, setCustomEnd] = useState(30);
   const [name, setName] = useState('');
+  const [withBuffer, setWithBuffer] = useState(false);
   const [busy, setBusy] = useState(false);
   const [unreadableId, setUnreadableId] = useState<string | null>(null);
 
@@ -78,6 +86,9 @@ export default function NewSectionScreen() {
   const end = songEnd != null ? Math.min(wantedEnd, songEnd) : wantedEnd;
   const shortened = lengthChoice !== 'custom' && songEnd != null && wantedEnd > songEnd;
   const length = end - startClamped;
+  // With the buffer on, the file also includes up to 5 s before and after (never past the song).
+  const buffered = applySectionBuffer(startClamped, end, withBuffer ? tcSeconds(SECTION_BUFFER_SECONDS) : 0, base, songEnd);
+  const outerRegion = source != null && songEnd != null && withBuffer ? { start: buffered.fileStart, end: buffered.fileEnd } : undefined;
   const error = !source ? 'Pick a song.' : validateSection(startClamped, end, songEnd);
   const placeholder = sectionName(nextSectionIndex(cues), length > 0 ? length : 30);
 
@@ -104,7 +115,13 @@ export default function NewSectionScreen() {
     setBusy(true);
     try {
       const finalName = name.trim() || placeholder;
-      const cue = await createSection({ source, startSeconds: startClamped, endSeconds: end, name: finalName });
+      const cue = await createSection({
+        source,
+        startSeconds: startClamped,
+        endSeconds: end,
+        name: finalName,
+        bufferSeconds: withBuffer ? tcSeconds(SECTION_BUFFER_SECONDS) : 0,
+      });
       useAppStore.getState().insertCueAfter(source.id, cue);
       router.dismissTo('/cues');
       Alert.alert(
@@ -179,6 +196,7 @@ export default function NewSectionScreen() {
             max={songEnd ?? base + 1}
             value={startClamped}
             region={ready ? { start: startClamped, end } : undefined}
+            outerRegion={outerRegion}
             onChange={(v) => setStartTo(snapSecond(v))}
             disabled={!ready}
             accessibilityLabel="Section start in the song"
@@ -224,6 +242,7 @@ export default function NewSectionScreen() {
                 max={songEnd ?? base + 1}
                 value={end}
                 region={ready ? { start: startClamped, end } : undefined}
+            outerRegion={outerRegion}
                 onChange={(v) => setEndTo(snapSecond(v))}
                 disabled={!ready}
                 accessibilityLabel="Section end in the song"
@@ -244,6 +263,36 @@ export default function NewSectionScreen() {
             ))}
           </View>
           {shortened ? <Text style={styles.note}>Shortened to the end of the song.</Text> : null}
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: withBuffer }}
+            onPress={() => setWithBuffer((v) => !v)}
+            style={({ pressed }) => [styles.bufferBtn, withBuffer && styles.bufferBtnOn, pressed && { opacity: 0.7 }]}
+          >
+            <View style={[styles.check, withBuffer && styles.checkOn]}>
+              {withBuffer ? <Text style={styles.checkMark}>✓</Text> : null}
+            </View>
+            <Text style={[styles.bufferText, withBuffer && { color: colors.slateGreen }]}>
+              +{SECTION_BUFFER_SECONDS}s BUFFER BEFORE & AFTER
+            </Text>
+          </Pressable>
+          {withBuffer && ready ? (
+            <View style={{ gap: 2 }}>
+              <Text style={[styles.fileLine, monoDigits]}>
+                {`File: ${tc(buffered.fileStart)} → ${tc(buffered.fileEnd)}  (${tc(buffered.fileEnd - buffered.fileStart)} long)`}
+              </Text>
+              {buffered.before < tcSeconds(SECTION_BUFFER_SECONDS) - 0.001 ? (
+                <Text style={styles.note}>
+                  {`Only ${Math.round(buffered.before * 10) / 10}s before: the song starts there.`}
+                </Text>
+              ) : null}
+              {buffered.after < tcSeconds(SECTION_BUFFER_SECONDS) - 0.001 ? (
+                <Text style={styles.note}>
+                  {`Only ${Math.round(buffered.after * 10) / 10}s after: the song ends there.`}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </Section>
 
@@ -334,6 +383,31 @@ const styles = StyleSheet.create({
   readout: { flex: 1, backgroundColor: colors.surfaceAlt, borderRadius: 10, padding: 10, gap: 4 },
   readoutValue: { color: colors.text, fontSize: 16, fontWeight: '700' },
   note: { color: colors.warn, fontSize: 13 },
+  bufferBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 48,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+  },
+  bufferBtnOn: { borderColor: colors.slateGreen },
+  check: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.textDim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkOn: { borderColor: colors.slateGreen, backgroundColor: colors.slateGreen },
+  checkMark: { color: '#04140a', fontSize: 14, fontWeight: '900', lineHeight: 16 },
+  bufferText: { color: colors.text, fontSize: 15, fontWeight: '800', letterSpacing: 0.5, flexShrink: 1 },
+  fileLine: { color: colors.textDim, fontSize: 13 },
   input: {
     color: colors.text,
     fontSize: 18,

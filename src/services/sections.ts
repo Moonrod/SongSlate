@@ -1,6 +1,12 @@
 import { audioEngine } from '../audio/SlateAudioEngine';
 import { encodeWav16 } from '../audio/wav';
-import { cueTimecodeBase, sectionFileName, sectionFrameRange, validateSection } from '../domain/section';
+import {
+  applySectionBuffer,
+  cueTimecodeBase,
+  sectionFileName,
+  sectionFrameRange,
+  validateSection,
+} from '../domain/section';
 import type { Cue } from '../domain/types';
 import { makeId } from '../utils/id';
 import { cueFileUri, saveGeneratedAudio } from './audioFiles';
@@ -11,6 +17,8 @@ export interface CreateSectionInput {
   startSeconds: number;
   endSeconds: number;
   name: string;
+  /** Extra seconds of the song to include before and after the section (0 = none). */
+  bufferSeconds?: number;
 }
 
 /**
@@ -18,7 +26,13 @@ export interface CreateSectionInput {
  * cue for it. The new cue remembers where it came from, so the slate shows the
  * original song's timecode while it plays.
  */
-export async function createSection({ source, startSeconds, endSeconds, name }: CreateSectionInput): Promise<Cue> {
+export async function createSection({
+  source,
+  startSeconds,
+  endSeconds,
+  name,
+  bufferSeconds = 0,
+}: CreateSectionInput): Promise<Cue> {
   // Sections of sections are measured in the original song's time.
   const base = cueTimecodeBase(source);
   const error = validateSection(
@@ -34,9 +48,17 @@ export async function createSection({ source, startSeconds, endSeconds, name }: 
   const songEnd = base + totalFrames / pcm.sampleRate;
   const lateError = validateSection(startSeconds, endSeconds, songEnd);
   if (lateError) throw new Error(lateError);
+  // The file runs from the buffered start to the buffered end, clamped to the song.
+  const { fileStart, fileEnd, before, after } = applySectionBuffer(
+    startSeconds,
+    Math.min(endSeconds, songEnd),
+    bufferSeconds,
+    base,
+    songEnd,
+  );
   const { startFrame, endFrame } = sectionFrameRange(
-    startSeconds - base,
-    endSeconds - base,
+    fileStart - base,
+    fileEnd - base,
     pcm.sampleRate,
     totalFrames,
   );
@@ -49,8 +71,6 @@ export async function createSection({ source, startSeconds, endSeconds, name }: 
   const durationSeconds = (endFrame - startFrame) / pcm.sampleRate;
   // Keep the timecode exactly as typed. Snapping to the nearest sample can land a
   // few microseconds before a frame boundary, which would read as the previous frame.
-  const sectionStart = startSeconds;
-  const sectionEnd = Math.min(endSeconds, songEnd);
   const original = source.section;
   return {
     id: makeId('c_'),
@@ -64,8 +84,9 @@ export async function createSection({ source, startSeconds, endSeconds, name }: 
       sourceCueId: original?.sourceCueId ?? source.id,
       sourceName: original?.sourceName ?? source.name,
       sourceFileName: original?.sourceFileName ?? source.originalFileName,
-      startSeconds: sectionStart,
-      endSeconds: sectionEnd,
+      startSeconds: fileStart,
+      endSeconds: fileEnd,
+      ...(before > 0 || after > 0 ? { bufferBefore: before, bufferAfter: after } : {}),
     },
   };
 }

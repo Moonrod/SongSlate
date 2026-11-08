@@ -75,3 +75,27 @@ export function sectionFileName(name: string): string {
     .slice(0, 80);
   return `${safe || 'Section'}.wav`;
 }
+
+/** Pre-roll/run-out added around a section when the buffer option is on. */
+export const SECTION_BUFFER_SECONDS = 5;
+
+/**
+ * Extends a section by `buffer` seconds on each side, without going past the
+ * song's start or end. Returns the file's extents and how much was really added.
+ */
+export function applySectionBuffer(
+  startSeconds: number,
+  endSeconds: number,
+  buffer: number,
+  songStart: number,
+  songEnd: number | null,
+): { fileStart: number; fileEnd: number; before: number; after: number } {
+  const fileStart = Math.max(songStart, startSeconds - buffer);
+  const fileEnd = songEnd == null ? endSeconds + buffer : Math.min(songEnd, endSeconds + buffer);
+  return {
+    fileStart,
+    fileEnd,
+    before: Math.max(0, startSeconds - fileStart),
+    after: Math.max(0, fileEnd - endSeconds),
+  };
+}

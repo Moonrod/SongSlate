@@ -1,4 +1,5 @@
 import {
+  applySectionBuffer,
   cueTimecodeBase,
   formatShortLength,
   nextSectionIndex,
@@ -67,5 +68,24 @@ describe('cueTimecodeBase', () => {
     expect(
       cueTimecodeBase({ section: { sourceCueId: 'c', sourceName: 'S', sourceFileName: 's.wav', startSeconds: 72, endSeconds: 102 } }),
     ).toBe(72);
+  });
+});
+
+describe('applySectionBuffer', () => {
+  it('adds the buffer on both sides', () => {
+    expect(applySectionBuffer(72, 102, 5, 0, 204)).toEqual({ fileStart: 67, fileEnd: 107, before: 5, after: 5 });
+  });
+
+  it('stops at the start and end of the song', () => {
+    expect(applySectionBuffer(3, 33, 5, 0, 204)).toEqual({ fileStart: 0, fileEnd: 38, before: 3, after: 5 });
+    expect(applySectionBuffer(180, 202, 5, 0, 204)).toEqual({ fileStart: 175, fileEnd: 204, before: 5, after: 2 });
+  });
+
+  it('respects a section-of-a-section start', () => {
+    expect(applySectionBuffer(74, 90, 5, 72, 120)).toEqual({ fileStart: 72, fileEnd: 95, before: 2, after: 5 });
+  });
+
+  it('is a no-op with no buffer', () => {
+    expect(applySectionBuffer(10, 20, 0, 0, 100)).toEqual({ fileStart: 10, fileEnd: 20, before: 0, after: 0 });
   });
 });

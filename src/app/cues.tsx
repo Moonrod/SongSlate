@@ -69,6 +69,8 @@ export default function CueListScreen() {
           const tc = (s: number) => formatTimecode(s, settings.frameRate, settings.dropFrame);
           const start = item.section
             ? `SECTION ${tc(item.section.startSeconds)}–${tc(item.section.endSeconds)}${
+                item.section.bufferBefore || item.section.bufferAfter ? ' incl. buffer' : ''
+              }${
                 item.startMode === 'timecode' ? `, from ${tc(base + item.startSeconds)}` : ''
               }`
             : item.startMode === 'full'

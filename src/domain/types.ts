@@ -31,9 +31,12 @@ export interface CueSection {
   sourceCueId: string;
   sourceName: string;
   sourceFileName: string;
-  /** Section start/end in the original song (seconds). */
+  /** The file's start/end in the original song (seconds), buffer included. */
   startSeconds: number;
   endSeconds: number;
+  /** Pre-roll and run-out actually included around the chosen section (seconds). */
+  bufferBefore?: number;
+  bufferAfter?: number;
 }
 
 export type StopGesture = 'tap' | 'longPress';

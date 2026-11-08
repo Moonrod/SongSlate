@@ -126,7 +126,13 @@ export default function EditCueScreen() {
                 cue.section.endSeconds,
                 frameRate,
                 dropFrame,
-              )}`}
+              )}${
+                cue.section.bufferBefore || cue.section.bufferAfter
+                  ? `\nIncludes ${Math.round((cue.section.bufferBefore ?? 0) * 10) / 10}s before and ${
+                      Math.round((cue.section.bufferAfter ?? 0) * 10) / 10
+                    }s after the section`
+                  : ''
+              }`}
             </Text>
           </Row>
         ) : null}
