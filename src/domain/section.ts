@@ -12,17 +12,21 @@ export function cueTimecodeBase(cue: Pick<Cue, 'section'>): number {
   return cue.section?.startSeconds ?? 0;
 }
 
-/** Length shown in section names: ":30" under a minute, "1:05" from a minute up. */
-export function formatShortLength(seconds: number): string {
-  const total = Math.max(0, Math.round(seconds));
+/** Time shown in section names: ":45" under a minute, "1:20" from a minute up. */
+export function formatShortTime(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds + 1e-6));
   const m = Math.floor(total / 60);
   const s = String(total % 60).padStart(2, '0');
   return m > 0 ? `${m}:${s}` : `:${s}`;
 }
 
-/** e.g. sectionName(1, 30) → "Timecode 01 (:30)" */
-export function sectionName(index: number, lengthSeconds: number): string {
-  return `Timecode ${String(index).padStart(2, '0')} (${formatShortLength(lengthSeconds)})`;
+/**
+ * Suggested name: the number and where the clip starts in the song (buffer
+ * included), e.g. sectionName(1, 80) → "Timecode 01 (1:20)".
+ * `startWholeSeconds` is whole timecode seconds (frames dropped).
+ */
+export function sectionName(index: number, startWholeSeconds: number): string {
+  return `Timecode ${String(index).padStart(2, '0')} (${formatShortTime(startWholeSeconds)})`;
 }
 
 /** Next free number after any existing "Timecode NN" cue names. */

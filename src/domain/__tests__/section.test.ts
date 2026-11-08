@@ -1,7 +1,7 @@
 import {
   applySectionBuffer,
   cueTimecodeBase,
-  formatShortLength,
+  formatShortTime,
   nextSectionIndex,
   sectionFileName,
   sectionFrameRange,
@@ -10,18 +10,19 @@ import {
 } from '../section';
 
 describe('section names', () => {
-  it('matches the "Timecode 01 (:30)" convention', () => {
-    expect(sectionName(1, 30)).toBe('Timecode 01 (:30)');
-    expect(sectionName(2, 45.4)).toBe('Timecode 02 (:45)');
-    expect(sectionName(12, 65)).toBe('Timecode 12 (1:05)');
-    expect(sectionName(3, 5)).toBe('Timecode 03 (:05)');
+  it('shows where the clip starts in the song', () => {
+    expect(sectionName(1, 80)).toBe('Timecode 01 (1:20)');
+    expect(sectionName(2, 145)).toBe('Timecode 02 (2:25)'); // 2:30 start with a 5 s buffer
+    expect(sectionName(3, 13)).toBe('Timecode 03 (:13)');
+    expect(sectionName(12, 0)).toBe('Timecode 12 (:00)');
   });
 
-  it('formats short lengths', () => {
-    expect(formatShortLength(0)).toBe(':00');
-    expect(formatShortLength(29.6)).toBe(':30');
-    expect(formatShortLength(60)).toBe('1:00');
-    expect(formatShortLength(605)).toBe('10:05');
+  it('formats start times, dropping frames', () => {
+    expect(formatShortTime(0)).toBe(':00');
+    expect(formatShortTime(29.9)).toBe(':29');
+    expect(formatShortTime(60)).toBe('1:00');
+    expect(formatShortTime(605)).toBe('10:05');
+    expect(formatShortTime(3725)).toBe('62:05');
   });
 
   it('numbers after existing "Timecode NN" cues', () => {

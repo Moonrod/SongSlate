@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
 
 import { cueDotEmoji, DOTS } from '../../domain/dots';
 import { cueTimecodeBase } from '../../domain/section';
 import { FRAME_RATES, formatDuration, formatTimecode, framesToSeconds, parseTimecode } from '../../domain/timecode';
 import type { StartMode } from '../../domain/types';
 import { deleteCueFile } from '../../services/audioFiles';
+import { SectionCutter } from '../../sections/SectionCutter';
 import { useAppStore } from '../../state/store';
 import { Button, Row, Section, Segmented } from '../../ui/controls';
 import { colors, monoDigits } from '../../ui/theme';
@@ -23,6 +24,9 @@ export default function EditCueScreen() {
   /** Text being typed; null shows the stored start point formatted at the current frame rate. */
   const [tcDraft, setTcDraft] = useState<string | null>(null);
   const [tcError, setTcError] = useState<string | null>(null);
+  /** CUT A SECTION chosen: the section tools replace the rest of the editor. */
+  const [cutting, setCutting] = useState(false);
+  const scrollRef = useRef<ScrollViewInstance>(null);
 
   if (!cue) {
     return (
@@ -85,56 +89,63 @@ export default function EditCueScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
-      <Section title="Cue">
-        <Row label="Name">
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            onBlur={commitName}
-            onSubmitEditing={commitName}
-            style={styles.input}
-            placeholder="Song title"
-            placeholderTextColor={colors.textDim}
-            returnKeyType="done"
-          />
-        </Row>
-        <Row label="Colour dot (shown before the title on the slate)">
-          {DOTS.map((d) => {
-            const selected = cueDotEmoji(cue, cueIndex) === d.emoji;
-            return (
-              <Pressable
-                key={d.id}
-                accessibilityRole="radio"
-                accessibilityLabel={d.label}
-                accessibilityState={{ selected }}
-                onPress={() => updateCue(cue.id, { dot: d.id })}
-                style={[styles.dot, selected && styles.dotSelected]}
-              >
-                <Text style={styles.dotEmoji}>{d.emoji}</Text>
-              </Pressable>
-            );
-          })}
-        </Row>
-        <Row label="File">
-          <Text style={styles.value}>{cue.originalFileName}</Text>
-        </Row>
-        {cue.section ? (
-          <Row label="Section of">
-            <Text style={[styles.value, monoDigits]}>
-              {`${cue.section.sourceName}\n${formatTimecode(cue.section.startSeconds, frameRate, dropFrame)} – ${formatTimecode(
-                cue.section.endSeconds,
-                frameRate,
-                dropFrame,
-              )}${
-                cue.section.bufferBefore || cue.section.bufferAfter
-                  ? `\nIncludes ${Math.round((cue.section.bufferBefore ?? 0) * 10) / 10}s before and ${
-                      Math.round((cue.section.bufferAfter ?? 0) * 10) / 10
-                    }s after the section`
-                  : ''
-              }`}
-            </Text>
+    <ScrollView
+      ref={scrollRef}
+      style={styles.container}
+      contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* While cutting, the cue details step aside so the Start point bar sits at the top. */}
+      {!cutting ? (
+        <Section title="Cue">
+          <Row label="Name">
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              onBlur={commitName}
+              onSubmitEditing={commitName}
+              style={styles.input}
+              placeholder="Song title"
+              placeholderTextColor={colors.textDim}
+              returnKeyType="done"
+            />
           </Row>
+          <Row label="Colour dot (shown before the title on the slate)">
+            {DOTS.map((d) => {
+              const selected = cueDotEmoji(cue, cueIndex) === d.emoji;
+              return (
+                <Pressable
+                  key={d.id}
+                  accessibilityRole="radio"
+                  accessibilityLabel={d.label}
+                  accessibilityState={{ selected }}
+                  onPress={() => updateCue(cue.id, { dot: d.id })}
+                  style={[styles.dot, selected && styles.dotSelected]}
+                >
+                  <Text style={styles.dotEmoji}>{d.emoji}</Text>
+                </Pressable>
+              );
+            })}
+          </Row>
+          <Row label="File">
+            <Text style={styles.value}>{cue.originalFileName}</Text>
+          </Row>
+          {cue.section ? (
+            <Row label="Section of">
+              <Text style={[styles.value, monoDigits]}>
+                {`${cue.section.sourceName}\n${formatTimecode(cue.section.startSeconds, frameRate, dropFrame)} – ${formatTimecode(
+                  cue.section.endSeconds,
+                  frameRate,
+                  dropFrame,
+                )}${
+                  cue.section.bufferBefore || cue.section.bufferAfter
+                    ? `\nIncludes ${Math.round((cue.section.bufferBefore ?? 0) * 10) / 10}s before and ${
+                        Math.round((cue.section.bufferAfter ?? 0) * 10) / 10
+                      }s after the section`
+                    : ''
+                }`}
+              </Text>
+            </Row>
         ) : null}
         <Row label="Duration">
           <Text style={[styles.value, monoDigits]}>
@@ -144,28 +155,38 @@ export default function EditCueScreen() {
           </Text>
         </Row>
       </Section>
+      ) : null}
 
       <Section
         title="Start point"
-        footer={`Timecode is song position at ${frameRate} fps${dropFrame && frameRate === '29.97' ? ' drop-frame' : ''}. The slate counter starts here at the green flip.`}
+        footer={
+          cutting
+            ? 'Cutting a new section from this song. Tap FULL SONG or FROM TIMECODE to go back.'
+            : `Timecode is song position at ${frameRate} fps${dropFrame && frameRate === '29.97' ? ' drop-frame' : ''}. The slate counter starts here at the green flip.`
+        }
       >
         <Row label="Play">
           <Segmented<StartMode | 'cut'>
             stretch
             options={[
               { value: 'full', label: cue.section ? 'WHOLE SECTION' : 'FULL SONG' },
-              // Not a play mode: opens New Section with this song picked.
+              // Not a play mode: shows the section tools below, leaving this bar in place.
               { value: 'cut', label: '✂︎ CUT A SECTION' },
               { value: 'timecode', label: 'FROM TIMECODE' },
             ]}
-            value={cue.startMode}
+            value={cutting ? 'cut' : cue.startMode}
             onChange={(choice) => {
-              if (choice === 'cut') router.push({ pathname: '/section', params: { sourceId: cue.id } });
-              else updateCue(cue.id, { startMode: choice });
+              if (choice === 'cut') {
+                setCutting(true);
+                scrollRef.current?.scrollTo({ y: 0, animated: false });
+              } else {
+                setCutting(false);
+                updateCue(cue.id, { startMode: choice });
+              }
             }}
           />
         </Row>
-        {cue.startMode === 'timecode' ? (
+        {!cutting && cue.startMode === 'timecode' ? (
           <Row label="Start timecode">
             <TextInput
               value={tcText}
@@ -191,18 +212,22 @@ export default function EditCueScreen() {
         ) : null}
       </Section>
 
-      <View style={{ gap: 10 }}>
-        <Button
-          title={armedCueId === cue.id ? 'Armed on slate' : 'Arm on slate'}
-          variant="primary"
-          disabled={armedCueId === cue.id}
-          onPress={() => {
-            armCue(cue.id);
-            router.dismissTo('/');
-          }}
-        />
-        <Button title="Delete cue" variant="danger" onPress={onDelete} />
-      </View>
+      {cutting ? <SectionCutter initialSourceId={cue.id} showSongPicker={false} /> : null}
+
+      {!cutting ? (
+        <View style={{ gap: 10 }}>
+          <Button
+            title={armedCueId === cue.id ? 'Armed on slate' : 'Arm on slate'}
+            variant="primary"
+            disabled={armedCueId === cue.id}
+            onPress={() => {
+              armCue(cue.id);
+              router.dismissTo('/');
+            }}
+          />
+          <Button title="Delete cue" variant="danger" onPress={onDelete} />
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
