@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { dotForIndex } from '../domain/dots';
 import type { Cue, LogEvent, Session, Settings, TakeLog } from '../domain/types';
 import { makeId } from '../utils/id';
 
@@ -93,7 +94,8 @@ export const useAppStore = create<AppState>()(
 
       addCues: (cues) =>
         set((s) => ({
-          cues: [...s.cues, ...cues],
+          // New cues get the next colour in the rotation unless one was chosen.
+          cues: [...s.cues, ...cues.map((c, i) => ({ ...c, dot: c.dot ?? dotForIndex(s.cues.length + i) }))],
           armedCueId: s.armedCueId ?? cues[0]?.id ?? null,
         })),
 
@@ -101,7 +103,7 @@ export const useAppStore = create<AppState>()(
         set((s) => {
           const idx = s.cues.findIndex((c) => c.id === afterId);
           const cues = [...s.cues];
-          cues.splice(idx < 0 ? cues.length : idx + 1, 0, cue);
+          cues.splice(idx < 0 ? cues.length : idx + 1, 0, { ...cue, dot: cue.dot ?? dotForIndex(s.cues.length) });
           return { cues, armedCueId: s.armedCueId ?? cue.id };
         }),
 

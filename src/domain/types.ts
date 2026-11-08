@@ -1,3 +1,5 @@
+import type { DotId } from './dots';
+
 export type FrameRateId = '23.976' | '24' | '25' | '29.97' | '30';
 
 export type StartMode = 'full' | 'timecode';
@@ -21,6 +23,8 @@ export interface Cue {
    * timecode so takes still line up with the full song in the edit.
    */
   section?: CueSection;
+  /** Coloured-dot emoji shown before the title on the slate. */
+  dot?: DotId;
 }
 
 export interface CueSection {

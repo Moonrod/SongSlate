@@ -97,6 +97,16 @@ export function formatTimecode(seconds: number, rate: FrameRateId, dropFrame = f
 }
 
 /**
+ * Slate display: "MM:SS:FF" without the hours field (bigger digits on camera).
+ * Minutes keep counting past 59 rather than wrapping, so nothing is ever hidden.
+ */
+export function formatSlateTimecode(seconds: number, rate: FrameRateId, dropFrame = false): string {
+  const df = isDropFrame(rate, dropFrame);
+  const p = framesToParts(secondsToFrames(seconds, rate), rate, df);
+  return `${pad2(p.hours * 60 + p.minutes)}:${pad2(p.seconds)}${df ? ';' : ':'}${pad2(p.frames)}`;
+}
+
+/**
  * Parses user input into song seconds. Accepts:
  *   HH:MM:SS:FF, HH:MM:SS;FF, HH:MM:SS, MM:SS, plain seconds ("72" or "72.5").
  * Returns null when the input is invalid (e.g. frames >= timebase, seconds >= 60).

@@ -5,7 +5,8 @@ import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { cueTimecodeBase } from '../domain/section';
-import { formatTimecode } from '../domain/timecode';
+import { cueDotEmoji } from '../domain/dots';
+import { formatSlateTimecode } from '../domain/timecode';
 import { boostBrightness, restoreBrightness } from '../services/device';
 import { useSlateController } from '../slate/useSlateController';
 import { selectActiveSession, useAppStore } from '../state/store';
@@ -65,7 +66,7 @@ export default function SlateScreen() {
   const startLabel = armedCue
     ? armedCue.startMode === 'full' && !armedCue.section
       ? 'FULL SONG'
-      : formatTimecode(
+      : formatSlateTimecode(
           cueTimecodeBase(armedCue) + (armedCue.startMode === 'timecode' ? armedCue.startSeconds : 0),
           settings.frameRate,
           settings.dropFrame,
@@ -76,11 +77,26 @@ export default function SlateScreen() {
     if (canNavigate) armRelative(dir === 'next' ? 1 : -1);
   };
 
-  const titleSize = Math.round(short * (landscape ? 0.075 : 0.085));
   const infoSize = Math.round(short * (landscape ? 0.06 : 0.07));
-  // "00:00:00:00" is 11 monospace glyphs ≈ 6.9 em wide; fill the usable width without clipping.
+  // "00:00:00" (MM:SS:FF, no hours) is 8 glyphs ≈ 5.1 em wide; fill the usable width without clipping.
   const usableWidth = width - insets.left - insets.right - 24;
-  const bigSize = Math.floor(Math.min(usableWidth / 6.9, height / (landscape ? 2.6 : 3.4)));
+  // While playing, the title is as big as the timecode, so both must fit with the take line and bars.
+  const chrome = insets.top + insets.bottom + 16 + 44 * 2 + 28 + infoSize * 1.4;
+  const bigSize = Math.floor(Math.min(usableWidth / 5.1, (height - chrome) / 2.5));
+  // Playing: title as big as the timecode. Portrait wraps up to 3 lines at that size;
+  // only names too long even for that are scaled down (conservative estimate: heavy glyph ≈ 0.72 em).
+  const titleLines = isGreen ? (landscape ? 1 : 3) : 2;
+  const titleText = armedCue?.name ?? 'SyncSlate';
+  const dotEmoji = armedCue ? cueDotEmoji(armedCue, cueIndex) : null;
+  const fitTitle = (max: number) => {
+    const avail = usableWidth;
+    const chars = titleText.length + (dotEmoji ? 2 : 0);
+    const longestWord = Math.max(...titleText.split(/\s+/).map((w) => w.length), 1);
+    const byWord = avail / (longestWord * 0.72);
+    const byTotal = (avail * titleLines * 0.85) / (chars * 0.72);
+    return Math.floor(Math.min(max, byWord, byTotal));
+  };
+  const titleSize = isGreen ? fitTitle(bigSize) : Math.round(short * (landscape ? 0.075 : 0.085));
   const countdownSize = Math.round(Math.min(width, height) * 0.55);
 
   let hint = '';
@@ -119,14 +135,20 @@ export default function SlateScreen() {
 
         <View style={styles.center}>
           <Text
-            style={[styles.title, { color: fg, fontSize: titleSize }]}
-            numberOfLines={2}
+            style={[styles.title, { color: fg, fontSize: titleSize, lineHeight: titleSize * 1.12 }]}
+            numberOfLines={titleLines}
             adjustsFontSizeToFit
             accessibilityRole="header"
           >
-            {armedCue?.name ?? 'SyncSlate'}
+            {dotEmoji ? (
+              // Dark outline keeps a green dot visible on the green screen.
+              <Text style={styles.dotEmoji} accessibilityLabel="Cue colour">
+                {dotEmoji}{' '}
+              </Text>
+            ) : null}
+            {titleText}
           </Text>
-          {armedCue ? (
+          {armedCue && !isGreen ? (
             <Text style={[styles.file, { color: fg, fontSize: Math.round(titleSize * 0.45) }]} numberOfLines={1}>
               {armedCue.originalFileName}
             </Text>
@@ -188,7 +210,8 @@ const styles = StyleSheet.create({
   },
   navButtonText: { color: '#fff', fontWeight: '800', fontSize: 15, letterSpacing: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  title: { fontWeight: '900', textAlign: 'center' },
+  title: { fontWeight: '900', textAlign: 'center', alignSelf: 'stretch' },
+  dotEmoji: { textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 4 },
   file: { fontWeight: '600', opacity: 0.85, textAlign: 'center' },
   bigArea: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', minHeight: 80, marginVertical: 8 },
   big: { fontWeight: '900', textAlign: 'center' },

@@ -2,6 +2,7 @@ import {
   FRAME_RATE_IDS,
   formatDuration,
   formatParts,
+  formatSlateTimecode,
   formatTimecode,
   framesToParts,
   framesToSeconds,
@@ -135,5 +136,23 @@ describe('formatDuration', () => {
     expect(formatDuration(72.0721)).toBe('1:12.072');
     expect(formatDuration(3725.5)).toBe('62:05.500');
     expect(formatDuration(-1)).toBe('0:00.000');
+  });
+});
+
+describe('formatSlateTimecode (no hours)', () => {
+  it('shows MM:SS:FF', () => {
+    expect(formatSlateTimecode(0, '24')).toBe('00:00:00');
+    expect(formatSlateTimecode(72, '24')).toBe('01:12:00');
+    expect(formatSlateTimecode(1.5, '25')).toBe('00:01:12');
+    expect(parseTimecode('00:01:12:00', '23.976')).not.toBeNull();
+    expect(formatSlateTimecode(parseTimecode('00:01:12:00', '23.976')!, '23.976')).toBe('01:12:00');
+  });
+
+  it('keeps counting minutes past an hour instead of hiding it', () => {
+    expect(formatSlateTimecode(3600 + 125, '30')).toBe('62:05:00');
+  });
+
+  it('uses ; before frames for drop-frame', () => {
+    expect(formatSlateTimecode(3600, '29.97', true)).toBe('60:00;00');
   });
 });

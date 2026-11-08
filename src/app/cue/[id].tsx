@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { cueDotEmoji, DOTS } from '../../domain/dots';
 import { cueTimecodeBase } from '../../domain/section';
 import { FRAME_RATES, formatDuration, formatTimecode, framesToSeconds, parseTimecode } from '../../domain/timecode';
 import type { StartMode } from '../../domain/types';
@@ -13,6 +14,7 @@ import { colors, monoDigits } from '../../ui/theme';
 export default function EditCueScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const cue = useAppStore((s) => s.cues.find((c) => c.id === id));
+  const cueIndex = useAppStore((s) => s.cues.findIndex((c) => c.id === id));
   const armedCueId = useAppStore((s) => s.armedCueId);
   const { frameRate, dropFrame } = useAppStore((s) => s.settings);
   const { updateCue, removeCue, armCue } = useAppStore.getState();
@@ -96,6 +98,23 @@ export default function EditCueScreen() {
             placeholderTextColor={colors.textDim}
             returnKeyType="done"
           />
+        </Row>
+        <Row label="Colour dot (shown before the title on the slate)">
+          {DOTS.map((d) => {
+            const selected = cueDotEmoji(cue, cueIndex) === d.emoji;
+            return (
+              <Pressable
+                key={d.id}
+                accessibilityRole="radio"
+                accessibilityLabel={d.label}
+                accessibilityState={{ selected }}
+                onPress={() => updateCue(cue.id, { dot: d.id })}
+                style={[styles.dot, selected && styles.dotSelected]}
+              >
+                <Text style={styles.dotEmoji}>{d.emoji}</Text>
+              </Pressable>
+            );
+          })}
         </Row>
         <Row label="File">
           <Text style={styles.value}>{cue.originalFileName}</Text>
@@ -196,5 +215,17 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   value: { color: colors.textDim, fontSize: 15 },
+  dot: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: colors.surfaceAlt,
+  },
+  dotSelected: { borderColor: colors.text },
+  dotEmoji: { fontSize: 24, lineHeight: 30 },
   error: { color: colors.warn, fontSize: 13, width: '100%' },
 });

@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 
 import { audioEngine, type EngineEvent } from '../audio/SlateAudioEngine';
 import { cueTimecodeBase } from '../domain/section';
-import { FRAME_RATES, formatTimecode } from '../domain/timecode';
+import { FRAME_RATES, formatSlateTimecode } from '../domain/timecode';
 import type { Cue, EndReason, LogEvent, LogEventType } from '../domain/types';
 import { cueFileExists, cueFileUri } from '../services/audioFiles';
 import { selectArmedCue, useAppStore } from '../state/store';
@@ -120,7 +120,7 @@ export function useSlateController() {
         update({
           phase: 'playing',
           countdown: null,
-          timecode: formatTimecode(t.tcBase + t.offsetSeconds, frameRate, dropFrame),
+          timecode: formatSlateTimecode(t.tcBase + t.offsetSeconds, frameRate, dropFrame),
         });
       } else {
         const showCountdown = useAppStore.getState().settings.countdownSeconds > 0;
@@ -129,7 +129,7 @@ export function useSlateController() {
     } else {
       const pos = audioEngine.getSongPosition();
       if (pos != null) {
-        update({ timecode: formatTimecode(t.tcBase + Math.max(t.offsetSeconds, pos), frameRate, dropFrame) });
+        update({ timecode: formatSlateTimecode(t.tcBase + Math.max(t.offsetSeconds, pos), frameRate, dropFrame) });
       }
     }
     raf.current = requestAnimationFrame(() => loop.current?.());
