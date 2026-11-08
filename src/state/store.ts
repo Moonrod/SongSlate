@@ -65,6 +65,8 @@ export interface AppState {
   insertCueAfter: (afterId: string, cue: Cue) => void;
   updateCue: (id: string, patch: Partial<Cue>) => void;
   removeCue: (id: string) => void;
+  /** Remove several cues at once (their audio files are deleted by the caller). */
+  removeCues: (ids: string[]) => void;
   moveCue: (id: string, delta: -1 | 1) => void;
   armCue: (id: string) => void;
   armRelative: (delta: -1 | 1) => void;
@@ -115,13 +117,18 @@ export const useAppStore = create<AppState>()(
           return { cues: s.cues.map((c) => (c.id === id ? { ...c, ...patch } : c)) };
         }),
 
-      removeCue: (id) =>
+      removeCue: (id) => get().removeCues([id]),
+
+      removeCues: (ids) =>
         set((s) => {
-          const idx = s.cues.findIndex((c) => c.id === id);
-          const cues = s.cues.filter((c) => c.id !== id);
+          const gone = new Set(ids);
+          const cues = s.cues.filter((c) => !gone.has(c.id));
           let armedCueId = s.armedCueId;
-          if (armedCueId === id) {
-            armedCueId = cues[Math.min(idx, cues.length - 1)]?.id ?? null;
+          if (armedCueId && gone.has(armedCueId)) {
+            // Arm the next remaining cue after the removed one (or the last one).
+            const idx = s.cues.findIndex((c) => c.id === armedCueId);
+            const after = s.cues.slice(idx + 1).find((c) => !gone.has(c.id));
+            armedCueId = after?.id ?? cues[cues.length - 1]?.id ?? null;
           }
           return { cues, armedCueId };
         }),
