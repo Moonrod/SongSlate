@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { dotForIndex } from '../domain/dots';
+import { assignUniqueDots } from '../domain/dots';
 import type { Cue, LogEvent, Session, Settings, TakeLog } from '../domain/types';
 import { makeId } from '../utils/id';
 
@@ -95,7 +95,8 @@ export const useAppStore = create<AppState>()(
       addCues: (cues) =>
         set((s) => ({
           // New cues get the next colour in the rotation unless one was chosen.
-          cues: [...s.cues, ...cues.map((c, i) => ({ ...c, dot: c.dot ?? dotForIndex(s.cues.length + i) }))],
+          // Every cue gets its own marker (no repeats, no green).
+          cues: assignUniqueDots([...s.cues, ...cues]),
           armedCueId: s.armedCueId ?? cues[0]?.id ?? null,
         })),
 
@@ -103,12 +104,16 @@ export const useAppStore = create<AppState>()(
         set((s) => {
           const idx = s.cues.findIndex((c) => c.id === afterId);
           const cues = [...s.cues];
-          cues.splice(idx < 0 ? cues.length : idx + 1, 0, { ...cue, dot: cue.dot ?? dotForIndex(s.cues.length) });
-          return { cues, armedCueId: s.armedCueId ?? cue.id };
+          cues.splice(idx < 0 ? cues.length : idx + 1, 0, cue);
+          return { cues: assignUniqueDots(cues), armedCueId: s.armedCueId ?? cue.id };
         }),
 
       updateCue: (id, patch) =>
-        set((s) => ({ cues: s.cues.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
+        set((s) => {
+          // A marker already used by another cue can't be chosen.
+          if (patch.dot && s.cues.some((c) => c.id !== id && c.dot === patch.dot)) return {};
+          return { cues: s.cues.map((c) => (c.id === id ? { ...c, ...patch } : c)) };
+        }),
 
       removeCue: (id) =>
         set((s) => {
@@ -214,6 +219,8 @@ export const useAppStore = create<AppState>()(
           ...current,
           ...p,
           settings: { ...DEFAULT_SETTINGS, ...(p.settings ?? {}) },
+          // Older saves may have repeated or green dots, or none.
+          cues: assignUniqueDots(p.cues ?? []),
         };
       },
       onRehydrateStorage: () => (_state, error) => {

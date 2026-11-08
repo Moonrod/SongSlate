@@ -87,7 +87,7 @@ export default function CueListScreen() {
                 <Text style={styles.index}>{index + 1}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name} numberOfLines={1}>
-                    {`${cueDotEmoji(item, index)} ${item.name}`}
+                    {`${cueDotEmoji(item)} ${item.name}`}
                   </Text>
                   <Text style={styles.meta} numberOfLines={1}>
                     <Text style={monoDigits}>{start}</Text>

@@ -35,6 +35,10 @@ export default function SettingsScreen() {
         </Row>
         <Row label="2-pop beep at green flip">
           <Switch value={settings.twoPop} onValueChange={(twoPop) => updateSettings({ twoPop })} />
+          <Text style={styles.help}>
+            Plays a short beep, one frame long, the instant the screen turns green. It gives your editor a sync point
+            to hear in the camera audio, and it’s how you set the latency offset below.
+          </Text>
         </Row>
         <Row label="Orientation">
           <Segmented<OrientationSetting>
@@ -112,4 +116,5 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   version: { color: colors.textDim, textAlign: 'center', marginTop: 24, fontSize: 13 },
+  help: { color: colors.textDim, fontSize: 13, lineHeight: 18, width: '100%' },
 });

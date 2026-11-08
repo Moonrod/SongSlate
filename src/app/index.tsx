@@ -87,7 +87,7 @@ export default function SlateScreen() {
   // only names too long even for that are scaled down (conservative estimate: heavy glyph ≈ 0.72 em).
   const titleLines = isGreen ? (landscape ? 1 : 3) : 2;
   const titleText = armedCue?.name ?? 'SyncSlate';
-  const dotEmoji = armedCue ? cueDotEmoji(armedCue, cueIndex) : null;
+  const dotEmoji = armedCue ? cueDotEmoji(armedCue) : null;
   const fitTitle = (max: number) => {
     const avail = usableWidth;
     const chars = titleText.length + (dotEmoji ? 2 : 0);

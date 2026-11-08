@@ -198,7 +198,7 @@ export function SectionCutter({
                 >
                   <View style={[styles.radio, selected && styles.radioOn]}>{selected ? <View style={styles.radioDot} /> : null}</View>
                   <Text style={styles.songName} numberOfLines={1}>
-                    {`${cueDotEmoji(c, i)} ${c.name}`}
+                    {`${cueDotEmoji(c)} ${c.name}`}
                   </Text>
                   <Text style={[styles.songMeta, monoDigits]}>
                     {c.durationSeconds != null ? formatDuration(c.durationSeconds).replace(/\.\d+$/, '') : ''}

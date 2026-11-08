@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from 'react-native';
 
-import { cueDotEmoji, DOTS } from '../../domain/dots';
+import { DOTS, dotsInUse } from '../../domain/dots';
 import { cueTimecodeBase } from '../../domain/section';
 import { FRAME_RATES, formatDuration, formatTimecode, framesToSeconds, parseTimecode } from '../../domain/timecode';
 import type { StartMode } from '../../domain/types';
@@ -15,7 +15,7 @@ import { colors, monoDigits } from '../../ui/theme';
 export default function EditCueScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const cue = useAppStore((s) => s.cues.find((c) => c.id === id));
-  const cueIndex = useAppStore((s) => s.cues.findIndex((c) => c.id === id));
+  const allCues = useAppStore((s) => s.cues);
   const armedCueId = useAppStore((s) => s.armedCueId);
   const { frameRate, dropFrame } = useAppStore((s) => s.settings);
   const { updateCue, removeCue, armCue } = useAppStore.getState();
@@ -110,17 +110,19 @@ export default function EditCueScreen() {
               returnKeyType="done"
             />
           </Row>
-          <Row label="Colour dot (shown before the title on the slate)">
+          <Row label="Marker (shown before the title on the slate; each cue has its own)">
             {DOTS.map((d) => {
-              const selected = cueDotEmoji(cue, cueIndex) === d.emoji;
+              const selected = cue.dot === d.id;
+              const taken = !selected && dotsInUse(allCues, cue.id).has(d.id);
               return (
                 <Pressable
                   key={d.id}
                   accessibilityRole="radio"
-                  accessibilityLabel={d.label}
-                  accessibilityState={{ selected }}
+                  accessibilityLabel={taken ? `${d.label}, used by another cue` : d.label}
+                  accessibilityState={{ selected, disabled: taken }}
+                  disabled={taken}
                   onPress={() => updateCue(cue.id, { dot: d.id })}
-                  style={[styles.dot, selected && styles.dotSelected]}
+                  style={[styles.dot, selected && styles.dotSelected, taken && styles.dotTaken]}
                 >
                   <Text style={styles.dotEmoji}>{d.emoji}</Text>
                 </Pressable>
@@ -259,6 +261,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
   },
   dotSelected: { borderColor: colors.text },
+  dotTaken: { opacity: 0.2 },
   dotEmoji: { fontSize: 24, lineHeight: 30 },
   error: { color: colors.warn, fontSize: 13, width: '100%' },
 });
