@@ -150,7 +150,8 @@ export default function SlateScreen() {
           </Text>
           {armedCue && !isGreen ? (
             <Text style={[styles.file, { color: fg, fontSize: Math.round(titleSize * 0.45) }]} numberOfLines={1}>
-              {armedCue.originalFileName}
+              {/* A section shows the file it was cut from (e.g. the original song's .wav). */}
+              {armedCue.section?.sourceFileName ?? armedCue.originalFileName}
             </Text>
           ) : null}
 

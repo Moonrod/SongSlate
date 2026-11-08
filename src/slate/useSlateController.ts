@@ -155,9 +155,10 @@ export function useSlateController() {
           takeNumber: t.takeNumber,
           cueId: t.cue.id,
           cueName: t.cue.name,
-          fileName: t.cue.originalFileName,
+          // For a section, the original song's file: that's what the editor has in the timeline.
+          fileName: t.cue.section?.sourceFileName ?? t.cue.originalFileName,
           // Logged in song time: for a section, the original song's timecode.
-          startMode: t.tcBase > 0 ? 'timecode' : t.cue.startMode,
+          startMode: t.cue.section ? 'timecode' : t.cue.startMode,
           startSeconds: t.tcBase + t.offsetSeconds,
           stopSeconds: t.tcBase + stopPos,
           flipEpochMs: t.flipEpochMs,
