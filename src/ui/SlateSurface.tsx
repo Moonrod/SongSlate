@@ -26,18 +26,27 @@ function createSlateResponder(box: { current: Handlers }): PanResponderInstance 
   let timer: ReturnType<typeof setTimeout> | null = null;
   let longPressed = false;
   let moved = false;
+  // True only when the touch began on the slate itself. A touch that began on a
+  // button (CUES, REPORT, …) and drifted can only become a swipe, never a tap:
+  // otherwise opening the report would also start a take.
+  let startedOnSurface = false;
   const clear = () => {
     if (timer) clearTimeout(timer);
     timer = null;
   };
   return PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: () => {
+      startedOnSurface = true;
+      return true;
+    },
+    // Take over a touch from a child button only for a clear horizontal swipe.
+    onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > TAP_SLOP && Math.abs(g.dx) > Math.abs(g.dy),
     onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: () => {
       longPressed = false;
       moved = false;
       clear();
+      if (!startedOnSurface) return; // no long-press for touches that began on a button
       timer = setTimeout(() => {
         if (!moved) {
           longPressed = true;
@@ -53,14 +62,19 @@ function createSlateResponder(box: { current: Handlers }): PanResponderInstance 
     },
     onPanResponderRelease: (_e, g) => {
       clear();
+      const onSurface = startedOnSurface;
+      startedOnSurface = false;
       if (longPressed) return;
       if (Math.abs(g.dx) >= SWIPE_DISTANCE && Math.abs(g.dx) > Math.abs(g.dy) * 1.5) {
         box.current.onSwipe(g.dx < 0 ? 'next' : 'prev');
-      } else if (Math.abs(g.dx) <= TAP_SLOP && Math.abs(g.dy) <= TAP_SLOP) {
+      } else if (onSurface && Math.abs(g.dx) <= TAP_SLOP && Math.abs(g.dy) <= TAP_SLOP) {
         box.current.onTap();
       }
     },
-    onPanResponderTerminate: clear,
+    onPanResponderTerminate: () => {
+      clear();
+      startedOnSurface = false;
+    },
   });
 }
 
