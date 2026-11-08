@@ -11,10 +11,10 @@ import {
 
 describe('section names', () => {
   it('shows where the clip starts in the song', () => {
-    expect(sectionName(1, 80)).toBe('Timecode 01 (1:20)');
-    expect(sectionName(2, 145)).toBe('Timecode 02 (2:25)'); // 2:30 start with a 5 s buffer
-    expect(sectionName(3, 13)).toBe('Timecode 03 (:13)');
-    expect(sectionName(12, 0)).toBe('Timecode 12 (:00)');
+    expect(sectionName(1, 80)).toBe('TC 01 (1:20)');
+    expect(sectionName(2, 145)).toBe('TC 02 (2:25)'); // 2:30 start with a 5 s buffer
+    expect(sectionName(3, 13)).toBe('TC 03 (:13)');
+    expect(sectionName(12, 0)).toBe('TC 12 (:00)');
   });
 
   it('formats start times, dropping frames', () => {
@@ -25,10 +25,11 @@ describe('section names', () => {
     expect(formatShortTime(3725)).toBe('62:05');
   });
 
-  it('numbers after existing "Timecode NN" cues', () => {
+  it('numbers after existing TC (and older Timecode) cues', () => {
     expect(nextSectionIndex([])).toBe(1);
     expect(nextSectionIndex([{ name: 'Verse' }, { name: 'Chorus' }])).toBe(1);
-    expect(nextSectionIndex([{ name: 'Timecode 01 (:30)' }, { name: 'timecode 04 (:10)' }, { name: 'Song' }])).toBe(5);
+    expect(nextSectionIndex([{ name: 'TC 01 (1:20)' }, { name: 'tc 03 (:10)' }, { name: 'Song' }])).toBe(4);
+    expect(nextSectionIndex([{ name: 'Timecode 04 (:30)' }, { name: 'TC 02 (1:00)' }])).toBe(5);
   });
 
   it('makes a display file name', () => {

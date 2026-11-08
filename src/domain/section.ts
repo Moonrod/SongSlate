@@ -22,18 +22,18 @@ export function formatShortTime(seconds: number): string {
 
 /**
  * Suggested name: the number and where the clip starts in the song (buffer
- * included), e.g. sectionName(1, 80) → "Timecode 01 (1:20)".
+ * included), e.g. sectionName(1, 80) → "TC 01 (1:20)".
  * `startWholeSeconds` is whole timecode seconds (frames dropped).
  */
 export function sectionName(index: number, startWholeSeconds: number): string {
-  return `Timecode ${String(index).padStart(2, '0')} (${formatShortTime(startWholeSeconds)})`;
+  return `TC ${String(index).padStart(2, '0')} (${formatShortTime(startWholeSeconds)})`;
 }
 
-/** Next free number after any existing "Timecode NN" cue names. */
+/** Next free number after any existing "TC NN" (or older "Timecode NN") cue names. */
 export function nextSectionIndex(cues: Pick<Cue, 'name'>[]): number {
   let max = 0;
   for (const c of cues) {
-    const m = /^Timecode\s+(\d+)/i.exec(c.name.trim());
+    const m = /^(?:TC|Timecode)\s+(\d+)/i.exec(c.name.trim());
     if (m) max = Math.max(max, Number(m[1]));
   }
   return max + 1;
