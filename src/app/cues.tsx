@@ -77,7 +77,11 @@ export default function CueListScreen() {
       const added = picked.slice(0, room);
       const noRoom = picked.slice(room);
       noRoom.forEach((c) => deleteCueFile(c));
-      if (added.length) addCues(added);
+      if (added.length) {
+        addCues(added);
+        // A freshly imported song is ready to shoot: arm it (the first one, if several).
+        armCue(added[0].id);
+      }
       const notes: string[] = [];
       if (noRoom.length) {
         notes.push(

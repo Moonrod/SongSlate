@@ -2,16 +2,15 @@
  * Web (browser preview) implementation of audioFiles.ts.
  *
  * Imported audio is kept in the browser's IndexedDB so it survives a reload,
- * and served to the audio engine as blob: URLs. A demo track (120 BPM click)
- * ships next to the page so the slate can be tried before importing anything.
+ * and served to the audio engine as blob: URLs.
  */
 import type { Cue } from '../domain/types';
 import { makeId } from '../utils/id';
 
 export const SUPPORTED_EXTENSIONS = ['mp3', 'wav', 'aif', 'aiff', 'aifc', 'm4a', 'mp4', 'aac'];
 
-export const DEMO_STORED_NAME = 'demo:click-120bpm';
-const DEMO_FILE = 'demo-click-120bpm.wav';
+/** Earlier previews added a demo click track; it's removed on load (see PreviewApp). */
+export const LEGACY_DEMO_STORED_NAME = 'demo:click-120bpm';
 
 const DB_NAME = 'syncslate-audio';
 const STORE = 'files';
@@ -51,25 +50,12 @@ export async function initWebAudioFiles(): Promise<void> {
   }
 }
 
-export function demoCue(): Cue {
-  return {
-    id: 'demo-cue',
-    name: 'Demo Click 120 BPM',
-    storedFileName: DEMO_STORED_NAME,
-    originalFileName: DEMO_FILE,
-    durationSeconds: null,
-    startMode: 'full',
-    startSeconds: 0,
-  };
-}
-
 export function cueFileUri(cue: Pick<Cue, 'storedFileName'>): string {
-  if (cue.storedFileName === DEMO_STORED_NAME) return new URL(DEMO_FILE, document.baseURI).href;
   return urls.get(cue.storedFileName) ?? '';
 }
 
 export function cueFileExists(cue: Pick<Cue, 'storedFileName'>): boolean {
-  return cue.storedFileName === DEMO_STORED_NAME || urls.has(cue.storedFileName);
+  return urls.has(cue.storedFileName);
 }
 
 function extensionOf(name: string): string {
@@ -151,7 +137,6 @@ export async function saveGeneratedAudio(bytes: Uint8Array, ext = 'wav'): Promis
 }
 
 export function deleteCueFile(cue: Pick<Cue, 'storedFileName'>) {
-  if (cue.storedFileName === DEMO_STORED_NAME) return;
   const url = urls.get(cue.storedFileName);
   if (url) URL.revokeObjectURL(url);
   urls.delete(cue.storedFileName);

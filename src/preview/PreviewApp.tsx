@@ -16,7 +16,7 @@ import ReportScreen from '../app/report';
 import NewSectionScreen from '../app/section';
 import SettingsScreen from '../app/settings';
 import { audioEngine } from '../audio/SlateAudioEngine';
-import { demoCue } from '../services/audioFiles.web';
+import { LEGACY_DEMO_STORED_NAME } from '../services/audioFiles.web';
 import { useAppStore } from '../state/store';
 import { colors } from '../ui/theme';
 import { DialogHost } from './dialogs';
@@ -69,11 +69,12 @@ export default function PreviewApp() {
   const hydrated = useAppBootstrap();
   const stack = usePreviewStack();
 
-  // First visit: give the slate something to play.
+  // Earlier previews added a demo track; remove it if it's still in the list.
   useEffect(() => {
     if (!hydrated) return;
     const state = useAppStore.getState();
-    if (state.cues.length === 0) state.addCues([demoCue()]);
+    const demo = state.cues.filter((c) => c.storedFileName === LEGACY_DEMO_STORED_NAME).map((c) => c.id);
+    if (demo.length) state.removeCues(demo);
   }, [hydrated]);
 
   // Browsers only allow audio to start from a user gesture.
