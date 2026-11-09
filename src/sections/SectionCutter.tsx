@@ -4,6 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 
 import { audioEngine } from '../audio/SlateAudioEngine';
 import { cueDotEmoji, MAX_CUES } from '../domain/dots';
+import { realSeconds, SPEEDS, speedLabel, type CueSpeed } from '../domain/speed';
 import {
   applySectionBuffer,
   cueTimecodeBase,
@@ -59,6 +60,7 @@ export function SectionCutter({
   const [customEnd, setCustomEnd] = useState(30);
   const [name, setName] = useState('');
   const [withBuffer, setWithBuffer] = useState(false);
+  const [speed, setSpeed] = useState<CueSpeed>(1);
   const [busy, setBusy] = useState(false);
   const [unreadableId, setUnreadableId] = useState<string | null>(null);
 
@@ -147,6 +149,7 @@ export function SectionCutter({
         endSeconds: end,
         name: finalName,
         bufferSeconds: withBuffer ? tcSeconds(SECTION_BUFFER_SECONDS) : 0,
+        speed,
       });
       useAppStore.getState().insertCueAfter(source.id, cue);
       router.dismissTo('/cues');
@@ -320,6 +323,38 @@ export function SectionCutter({
                 </Text>
               ) : null}
             </View>
+          ) : null}
+        </View>
+      </Section>
+
+      <Section
+        title="Speed"
+        footer="Varispeed, like a tape machine: pitch follows speed. The slate shows the badge next to the timecode, and the counter stays in song time."
+      >
+        <View style={styles.block}>
+          <View style={styles.chips}>
+            {SPEEDS.map((sp) => {
+              const on = sp.value === speed;
+              return (
+                <Pressable
+                  key={sp.label}
+                  accessibilityRole="radio"
+                  accessibilityLabel={sp.description}
+                  accessibilityState={{ selected: on }}
+                  onPress={() => setSpeed(sp.value)}
+                  style={[styles.chip, on && styles.chipOn]}
+                >
+                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{sp.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {speed !== 1 && length > 0 ? (
+            <Text style={[styles.fileLine, monoDigits]}>
+              {`${speedLabel(speed)}: plays for ${formatDuration(
+                realSeconds((withBuffer ? buffered.fileEnd - buffered.fileStart : length), speed),
+              ).replace(/\.\d+$/, '')} on set`}
+            </Text>
           ) : null}
         </View>
       </Section>

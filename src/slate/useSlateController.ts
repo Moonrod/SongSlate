@@ -171,6 +171,7 @@ export function useSlateController() {
           outputLatencyMs: t.outputLatencyMs,
           twoPop: settings.twoPop,
           sectionOf: t.cue.section?.sourceFileName,
+          ...(t.cue.speed && t.cue.speed !== 1 ? { speed: t.cue.speed } : {}),
           events: t.events,
         });
       } else {
@@ -201,6 +202,7 @@ export function useSlateController() {
         latencyOffsetMs: settings.latencyOffsetMs,
         twoPop: settings.twoPop,
         popSeconds: 1 / FRAME_RATES[settings.frameRate].fps,
+        playbackRate: cue.speed ?? 1,
         onEnded: (natural) => {
           if (natural && take.current) finish('ended', take.current.durationSeconds);
         },

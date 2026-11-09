@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type S
 
 import { DOTS, dotsInUse } from '../../domain/dots';
 import { cueTimecodeBase } from '../../domain/section';
+import { speedLabel } from '../../domain/speed';
 import { FRAME_RATES, formatDuration, formatTimecode, framesToSeconds, parseTimecode } from '../../domain/timecode';
 import type { StartMode } from '../../domain/types';
 import { deleteCueFile } from '../../services/audioFiles';
@@ -148,6 +149,13 @@ export default function EditCueScreen() {
                 }`}
               </Text>
             </Row>
+        ) : null}
+        {cue.speed && cue.speed !== 1 ? (
+          <Row label="Speed">
+            <Text style={styles.value}>
+              {`${speedLabel(cue.speed)}: ${cue.speed === 2 ? 'twice as fast' : 'half speed'} (chosen when the section was cut)`}
+            </Text>
+          </Row>
         ) : null}
         <Row label="Duration">
           <Text style={[styles.value, monoDigits]}>

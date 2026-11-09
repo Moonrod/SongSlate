@@ -7,6 +7,7 @@ import {
   sectionFrameRange,
   validateSection,
 } from '../domain/section';
+import type { CueSpeed } from '../domain/speed';
 import type { Cue } from '../domain/types';
 import { makeId } from '../utils/id';
 import { cueFileUri, saveGeneratedAudio } from './audioFiles';
@@ -19,6 +20,8 @@ export interface CreateSectionInput {
   name: string;
   /** Extra seconds of the song to include before and after the section (0 = none). */
   bufferSeconds?: number;
+  /** Playback speed for the new cue (2 = 2x F, 0.5 = 2x S). */
+  speed?: CueSpeed;
 }
 
 /**
@@ -32,6 +35,7 @@ export async function createSection({
   endSeconds,
   name,
   bufferSeconds = 0,
+  speed = 1,
 }: CreateSectionInput): Promise<Cue> {
   // Sections of sections are measured in the original song's time.
   const base = cueTimecodeBase(source);
@@ -80,6 +84,7 @@ export async function createSection({
     durationSeconds,
     startMode: 'full',
     startSeconds: 0,
+    ...(speed !== 1 ? { speed } : {}),
     section: {
       sourceCueId: original?.sourceCueId ?? source.id,
       sourceName: original?.sourceName ?? source.name,

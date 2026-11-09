@@ -56,6 +56,8 @@ export interface ScheduleOptions {
   twoPop: boolean;
   /** Length of the 2-pop beep, normally one video frame. */
   popSeconds: number;
+  /** Varispeed playback rate (2 = twice as fast, 0.5 = half speed). Default 1. */
+  playbackRate?: number;
   /** Called when the source finishes. `natural` = played to the end of the file. */
   onEnded: (natural: boolean) => void;
 }
@@ -78,6 +80,8 @@ interface ActiveTake {
   source: AudioBufferSourceNode;
   pop: { osc: OscillatorNode; gain: GainNode } | null;
   flipCtx: number;
+  /** Song seconds per real second. */
+  rate: number;
   offsetSeconds: number;
   durationSeconds: number;
   stopRequested: boolean;
@@ -308,8 +312,12 @@ class SlateAudioEngine {
     const audioStartCtx = ctxNow + lead;
     const flipCtx = audioStartCtx + outputLatency + userOffset;
 
+    const rate = opts.playbackRate && opts.playbackRate > 0 ? opts.playbackRate : 1;
     const source = ctx.createBufferSource();
     source.buffer = buffer;
+    // Varispeed: pitch follows speed, as with a tape machine. Starting point and
+    // scheduling are unaffected; only how fast the song moves after the flip.
+    source.playbackRate.value = rate;
     source.connect(ctx.destination);
 
     let pop: ActiveTake['pop'] = null;
@@ -330,6 +338,7 @@ class SlateAudioEngine {
       source,
       pop,
       flipCtx,
+      rate,
       offsetSeconds: opts.offsetSeconds,
       durationSeconds: buffer.duration,
       stopRequested: false,
@@ -363,7 +372,7 @@ class SlateAudioEngine {
   getSongPosition(): number | null {
     const take = this.active;
     if (!take || !this.ctx) return null;
-    const pos = take.offsetSeconds + (this.smoothedCtxTime() - take.flipCtx);
+    const pos = take.offsetSeconds + (this.smoothedCtxTime() - take.flipCtx) * take.rate;
     return Math.min(pos, take.durationSeconds);
   }
 

@@ -1,4 +1,5 @@
 import type { DotId } from './dots';
+import type { CueSpeed } from './speed';
 
 export type FrameRateId = '23.976' | '24' | '25' | '29.97' | '30';
 
@@ -25,6 +26,8 @@ export interface Cue {
   section?: CueSection;
   /** Coloured-dot emoji shown before the title on the slate. */
   dot?: DotId;
+  /** Playback speed chosen when the section was cut (2 = 2x F, 0.5 = 2x S). */
+  speed?: CueSpeed;
 }
 
 export interface CueSection {
@@ -104,6 +107,8 @@ export interface TakeLog {
   twoPop: boolean;
   /** Original song file, when the cue was a section cut from it. */
   sectionOf?: string;
+  /** Playback speed of the take, when not normal (2 or 0.5). */
+  speed?: number;
   events: LogEvent[];
 }
 

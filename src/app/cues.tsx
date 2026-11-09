@@ -4,6 +4,7 @@ import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { cueDotEmoji, MAX_CUES } from '../domain/dots';
+import { speedLabel } from '../domain/speed';
 import { cueTimecodeBase } from '../domain/section';
 import { formatDuration, formatTimecode } from '../domain/timecode';
 import { deleteCueFile, pickAndImportAudio } from '../services/audioFiles';
@@ -190,6 +191,7 @@ export default function CueListScreen() {
                   </Text>
                   <Text style={styles.meta} numberOfLines={1}>
                     <Text style={monoDigits}>{start}</Text>
+                    {item.speed && item.speed !== 1 ? `  ·  ${speedLabel(item.speed)}` : ''}
                     {item.durationSeconds ? `  ·  ${formatDuration(item.durationSeconds).replace(/\.\d+$/, '')}` : ''}
                     {item.section ? `  ·  of ${item.section.sourceName}` : `  ·  ${item.originalFileName}`}
                   </Text>

@@ -1,3 +1,4 @@
+import { speedLabel } from './speed';
 import { formatDuration, formatTimecode } from './timecode';
 import type { EndReason, LogEvent, LogEventType, Session, TakeLog } from './types';
 
@@ -87,6 +88,7 @@ export function takeToRow(take: TakeLog): ReportRow {
   const tc = (s: number) => formatTimecode(s, take.frameRate, take.dropFrame);
   const notes = [
     take.sectionOf ? `Section of ${take.sectionOf}` : '',
+    speedLabel(take.speed) ? `Played at ${speedLabel(take.speed)}` : '',
     take.twoPop ? '2-pop' : '',
     ...take.events.map((e) => `${formatWallClock(e.at).slice(11)} ${describeEvent(e)}`),
   ].filter(Boolean);

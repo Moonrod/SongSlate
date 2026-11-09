@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { describeEvent, END_REASON_LABELS, formatWallClock, startPointLabel } from '../domain/report';
+import { speedLabel } from '../domain/speed';
 import { formatDuration, formatTimecode } from '../domain/timecode';
 import type { Session, TakeLog } from '../domain/types';
 import { exportCsv, exportPdf } from '../services/exportReport';
@@ -25,7 +26,10 @@ function TakeRow({ take }: { take: TakeLog }) {
         {startPointLabel(take) === 'FULL SONG' ? 'FULL SONG  ' : ''}
         {tc(take.startSeconds)} → {tc(take.stopSeconds)}  ({formatDuration(take.durationSeconds)})
       </Text>
-      <Text style={[styles.takeLine, flagged && { color: colors.warn }]}>{END_REASON_LABELS[take.endReason]}</Text>
+      <Text style={[styles.takeLine, flagged && { color: colors.warn }]}>
+        {END_REASON_LABELS[take.endReason]}
+        {speedLabel(take.speed) ? `  ·  played at ${speedLabel(take.speed)}` : ''}
+      </Text>
       {take.events.map((e, i) => (
         <Text key={i} style={styles.eventLine}>
           ⚠︎ {formatWallClock(e.at).slice(11)} {describeEvent(e)}
