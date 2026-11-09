@@ -7,6 +7,7 @@ import { FRAME_RATES, formatSlateTimecode } from '../domain/timecode';
 import type { Cue, EndReason, LogEvent, LogEventType } from '../domain/types';
 import { cueFileExists, cueFileUri } from '../services/audioFiles';
 import { selectArmedCue, useAppStore } from '../state/store';
+import { clearLoading, crashedWhileLoading, markLoading } from './loadGuard';
 
 export type SlatePhase = 'empty' | 'loading' | 'armed' | 'countdown' | 'playing' | 'error';
 
@@ -45,6 +46,8 @@ export function useSlateController() {
   const raf = useRef<number | null>(null);
   const starting = useRef(false);
   const [reloadToken, setReloadToken] = useState(0);
+  /** Set when the user taps to retry a song that crashed the page last time. */
+  const retryRequested = useRef(false);
 
   const update = useCallback((patch: Partial<SlateView>) => {
     const next = { ...viewRef.current, ...patch };
@@ -73,11 +76,22 @@ export function useSlateController() {
       update({ phase: 'error', error: 'Audio file is missing. Re-import this cue.' });
       return;
     }
+    // Browser preview: if loading this song crashed the page last time, wait for a tap.
+    if (crashedWhileLoading(armedCue.storedFileName) && !retryRequested.current) {
+      update({
+        phase: 'error',
+        error: 'This song couldn’t be loaded last time. It may be too long for this viewer. Tap to try again.',
+      });
+      return;
+    }
+    retryRequested.current = false;
     let cancelled = false;
     update({ phase: 'loading', error: null });
+    markLoading(armedCue.storedFileName);
     audioEngine
       .load(cueFileUri(armedCue), armedCue.originalFileName)
       .then(({ durationSeconds }) => {
+        clearLoading();
         if (cancelled) return;
         const current = useAppStore.getState().cues.find((c) => c.id === armedCue.id);
         if (current && (current.durationSeconds == null || Math.abs(current.durationSeconds - durationSeconds) > 0.01)) {
@@ -86,6 +100,7 @@ export function useSlateController() {
         if (!take.current) update({ phase: 'armed', error: null });
       })
       .catch((e) => {
+        clearLoading();
         if (cancelled) return;
         update({ phase: 'error', error: `Could not load audio: ${e?.message ?? String(e)}` });
       });
@@ -290,7 +305,10 @@ export function useSlateController() {
     const phase = viewRef.current.phase;
     const { stopGesture } = useAppStore.getState().settings;
     if (phase === 'armed') void start();
-    else if (phase === 'error') setReloadToken((n) => n + 1);
+    else if (phase === 'error') {
+      retryRequested.current = true;
+      setReloadToken((n) => n + 1);
+    }
     else if ((phase === 'countdown' || phase === 'playing') && stopGesture === 'tap') stop('stopped');
   }, [start, stop]);
 

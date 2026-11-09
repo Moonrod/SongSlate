@@ -135,7 +135,11 @@ class SlateAudioEngine {
       }),
     );
 
-    this.ctx = new AudioContext({ latencyHint: 'interactive' });
+    // Browser preview: decode at 32 kHz to use about a third less memory than 48 kHz;
+    // embedded viewers (e.g. the Claude iOS app) have tight memory limits.
+    this.ctx = new AudioContext(
+      Platform.OS === 'web' ? { latencyHint: 'interactive', sampleRate: 32000 } : { latencyHint: 'interactive' },
+    );
     this.ctx.onerror = () => this.emit({ type: 'error', message: 'Audio context error' });
     // Warm the output, but don't block start-up on it: browsers keep audio
     // suspended until the first tap, and decoding cues doesn't need it running.
@@ -220,6 +224,8 @@ class SlateAudioEngine {
       return { key, durationSeconds: this.track.buffer.duration };
     }
     if (this.loading?.key !== key) {
+      // Let go of the previous song first, so two decoded songs are never held at once.
+      if (!this.active) this.track = null;
       this.loading = { key, promise: this.decode(fileUri, fileName) };
     }
     const promise = this.loading.promise;
