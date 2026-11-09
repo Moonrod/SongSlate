@@ -151,11 +151,14 @@ export function SectionCutter({
         bufferSeconds: withBuffer ? tcSeconds(SECTION_BUFFER_SECONDS) : 0,
         speed,
       });
-      useAppStore.getState().insertCueAfter(source.id, cue);
+      const store = useAppStore.getState();
+      store.insertCueAfter(source.id, cue);
+      // The new snippet is ready to shoot: arm it on the slate straight away.
+      if (useAppStore.getState().cues.some((c) => c.id === cue.id)) store.armCue(cue.id);
       router.dismissTo('/cues');
       Alert.alert(
-        'Section created',
-        `"${finalName}" (${formatDuration(cue.durationSeconds ?? 0)}) is in your cue list after "${source.name}". ` +
+        'Section created and armed',
+        `"${finalName}" (${formatDuration(cue.durationSeconds ?? 0)}) is armed on the slate and in your cue list after "${source.name}". ` +
           `When it plays, the slate counter starts at ${tc(cue.section!.startSeconds)}, matching "${cue.section!.sourceName}".`,
       );
     } catch (e: any) {
