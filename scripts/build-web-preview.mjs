@@ -45,9 +45,11 @@ writeFileSync(
   body { -webkit-tap-highlight-color: transparent; }
   #root { display: flex; height: 100%; flex: 1; }
   noscript { color: #f4f4f5; font: 16px system-ui, sans-serif; padding: 24px; display: block; }
+  .boot { margin: auto; color: #f4f4f5; font: 600 18px system-ui, -apple-system, sans-serif; letter-spacing: 0.04em; }
 </style>
 <noscript>SyncSlate needs JavaScript to run.</noscript>
-<div id="root"></div>
+<!-- Shown until the app has loaded (the bundle is ~0.9 MB), then replaced by it. -->
+<div id="root"><div class="boot" role="status">Loading SyncSlate…</div></div>
 <script src="syncslate.js" defer></script>
 `,
 );
