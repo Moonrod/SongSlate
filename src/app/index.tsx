@@ -1,6 +1,6 @@
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -31,6 +31,7 @@ export default function SlateScreen() {
   const { view, armedCue, onTap, onLongPress, canNavigate } = useSlateController();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const [centerHeight, setCenterHeight] = useState(0);
 
   const settings = useAppStore((s) => s.settings);
   const cues = useAppStore((s) => s.cues);
@@ -82,8 +83,14 @@ export default function SlateScreen() {
   // "00:00:00" (MM:SS:FF, no hours) is 8 glyphs ≈ 5.1 em wide; fill the usable width without clipping.
   const usableWidth = width - insets.left - insets.right - 24;
   // While playing, the title is as big as the timecode, so both must fit with the take line and bars.
-  const chrome = insets.top + insets.bottom + 16 + 44 * 2 + 28 + infoSize * 1.4;
-  const bigSize = Math.floor(Math.min(usableWidth / 5.1, (height - chrome) / 2.5));
+  // Height actually available between the button rows, measured (estimated until the first layout).
+  const chrome = insets.top + insets.bottom + 16 + 44 * 2 + 28;
+  const available = centerHeight > 0 ? centerHeight : height - chrome;
+  // While playing, the title and the timecode are the same size; landscape keeps the title on
+  // one line, portrait allows up to three. Each line is 1.12 em tall, plus the take line and gaps.
+  const playingTitleLines = landscape ? 1 : 3;
+  const sizeForHeight = (available - infoSize * 1.3 - 40) / (1.12 * (playingTitleLines + 1));
+  const bigSize = Math.max(24, Math.floor(Math.min(usableWidth / 5.1, sizeForHeight)));
   // A sped-up/slowed section ends its title with "2x F" / "2x S", after the brackets.
   const speedTag = speedLabel(armedCue?.speed);
   // Playing: title as big as the timecode. Portrait wraps up to 3 lines at that size;
@@ -136,7 +143,7 @@ export default function SlateScreen() {
           <NavButton label="SETTINGS" onPress={() => router.push('/settings')} />
         </View>
 
-        <View style={styles.center}>
+        <View style={styles.center} onLayout={(e) => setCenterHeight(e.nativeEvent.layout.height)}>
           <Text
             style={[styles.title, { color: fg, fontSize: titleSize, lineHeight: titleSize * 1.12 }]}
             numberOfLines={titleLines}
@@ -165,7 +172,7 @@ export default function SlateScreen() {
               </Text>
             ) : view.phase === 'playing' ? (
               <Text
-                style={[styles.big, monoDigits, { color: fg, fontSize: bigSize }]}
+                style={[styles.big, monoDigits, { color: fg, fontSize: bigSize, lineHeight: Math.round(bigSize * 1.12) }]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
@@ -213,11 +220,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   navButtonText: { color: '#fff', fontWeight: '800', fontSize: 15, letterSpacing: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  center: { flex: 1, minHeight: 0, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 6 },
   title: { fontWeight: '900', textAlign: 'center', alignSelf: 'stretch' },
   dotEmoji: { textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 4 },
   file: { fontWeight: '600', opacity: 0.85, textAlign: 'center' },
-  bigArea: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', minHeight: 80, marginVertical: 8 },
+  bigArea: { alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', marginVertical: 8 },
   big: { fontWeight: '900', textAlign: 'center' },
   countdown: { fontWeight: '900', textAlign: 'center' },
   take: { fontWeight: '900', letterSpacing: 2 },
