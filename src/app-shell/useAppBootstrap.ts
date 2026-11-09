@@ -1,9 +1,31 @@
-import { useKeepAwake } from 'expo-keep-awake';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 
 import { audioEngine } from '../audio/SlateAudioEngine';
 import { applyOrientation } from '../services/device';
 import { useAppStore } from '../state/store';
+
+const KEEP_AWAKE_TAG = 'syncslate';
+
+/**
+ * On the web (browser preview), a page embedded in a frame may not be allowed to
+ * keep the screen awake; asking anyway makes the browser log a policy violation.
+ */
+function wakeLockAllowed(): boolean {
+  if (Platform.OS !== 'web') return true;
+  try {
+    const doc = document as Document & {
+      permissionsPolicy?: { allowsFeature(f: string): boolean };
+      featurePolicy?: { allowsFeature(f: string): boolean };
+    };
+    const policy = doc.permissionsPolicy ?? doc.featurePolicy;
+    if (policy && !policy.allowsFeature('screen-wake-lock')) return false;
+    return 'wakeLock' in navigator;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * App-wide start-up shared by the native app (src/app/_layout.tsx) and the web
@@ -13,7 +35,13 @@ import { useAppStore } from '../state/store';
  */
 export function useAppBootstrap(): boolean {
   // Screen stays awake for as long as the app is open.
-  useKeepAwake();
+  useEffect(() => {
+    if (!wakeLockAllowed()) return;
+    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
+    return () => {
+      deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+    };
+  }, []);
 
   const hydrated = useAppStore((s) => s.hydrated);
   const orientation = useAppStore((s) => s.settings.orientation);

@@ -56,6 +56,31 @@ writeFileSync(
 <noscript>SyncSlate needs JavaScript to run.</noscript>
 <!-- Shown until the app has loaded (the bundle is ~0.9 MB), then replaced by it. -->
 <div id="root"><div class="boot" role="status">Loading SyncSlate…</div></div>
+<script>
+/* Runs before the app. Hosted viewers (e.g. the Claude iOS app) can treat any
+   uncaught error in the page as a crash, so: give the app working storage even
+   where the browser blocks it, and keep stray errors from escaping the page. */
+(function () {
+  function memoryStorage() {
+    var m = {};
+    return {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null; },
+      setItem: function (k, v) { m[k] = String(v); },
+      removeItem: function (k) { delete m[k]; },
+      clear: function () { m = {}; },
+      key: function (i) { return Object.keys(m)[i] || null; },
+      get length() { return Object.keys(m).length; }
+    };
+  }
+  ['localStorage', 'sessionStorage'].forEach(function (name) {
+    var works = false;
+    try { var s = window[name]; s.setItem('__syncslate_probe', '1'); s.removeItem('__syncslate_probe'); works = true; } catch (e) {}
+    if (!works) { try { Object.defineProperty(window, name, { value: memoryStorage(), configurable: true }); } catch (e) {} }
+  });
+  window.addEventListener('error', function (e) { e.preventDefault(); }, true);
+  window.addEventListener('unhandledrejection', function (e) { e.preventDefault(); });
+})();
+</script>
 <script>${bundle}</script>
 `,
 );
