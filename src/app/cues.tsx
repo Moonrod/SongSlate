@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { cueDotEmoji } from '../domain/dots';
+import { cueDotEmoji, MAX_CUES } from '../domain/dots';
 import { cueTimecodeBase } from '../domain/section';
 import { formatDuration, formatTimecode } from '../domain/timecode';
 import { deleteCueFile, pickAndImportAudio } from '../services/audioFiles';
@@ -58,14 +58,33 @@ export default function CueListScreen() {
     );
   };
 
+  const full = cues.length >= MAX_CUES;
+
   const onImport = async () => {
+    if (full) {
+      Alert.alert(
+        'Cue list is full',
+        `Each cue needs its own marker, so the list holds ${MAX_CUES} cues. Delete some cues to add more.`,
+      );
+      return;
+    }
     setImporting(true);
     try {
-      const { cues: added, skipped } = await pickAndImportAudio();
+      const { cues: picked, skipped } = await pickAndImportAudio();
+      // Only as many as there is room for; the copies of the rest are removed again.
+      const room = MAX_CUES - useAppStore.getState().cues.length;
+      const added = picked.slice(0, room);
+      const noRoom = picked.slice(room);
+      noRoom.forEach((c) => deleteCueFile(c));
       if (added.length) addCues(added);
-      if (skipped.length) {
-        Alert.alert('Some files were skipped', `Unsupported or unreadable:\n${skipped.join('\n')}`);
+      const notes: string[] = [];
+      if (noRoom.length) {
+        notes.push(
+          `The cue list is full (${MAX_CUES}). Not added:\n${noRoom.map((c) => c.originalFileName).join('\n')}\n\nDelete some cues to make room.`,
+        );
       }
+      if (skipped.length) notes.push(`Unsupported or unreadable:\n${skipped.join('\n')}`);
+      if (notes.length) Alert.alert('Some files weren’t added', notes.join('\n\n'));
     } catch (e: any) {
       Alert.alert('Import failed', e?.message ?? String(e));
     } finally {
@@ -96,8 +115,12 @@ export default function CueListScreen() {
         ListHeaderComponent={
           cues.length ? (
             <View style={styles.listTop}>
-              <Text style={styles.listTopText}>
-                {selecting ? `${ticked.length} selected` : `${cues.length} cue${cues.length === 1 ? '' : 's'}`}
+              <Text style={[styles.listTopText, full && !selecting && { color: colors.warn }]}>
+                {selecting
+                  ? `${ticked.length} selected`
+                  : full
+                    ? `${cues.length} of ${MAX_CUES} cues: full. Delete some to add more.`
+                    : `${cues.length} of ${MAX_CUES} cues`}
               </Text>
               {!selecting ? (
                 <Pressable
@@ -124,6 +147,7 @@ export default function CueListScreen() {
             <Button
               title="✂︎ New section from a song"
               onPress={() => router.push('/section')}
+              disabled={full}
               style={{ marginTop: 8 }}
             />
           ) : undefined

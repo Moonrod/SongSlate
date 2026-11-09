@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { audioEngine } from '../audio/SlateAudioEngine';
-import { cueDotEmoji } from '../domain/dots';
+import { cueDotEmoji, MAX_CUES } from '../domain/dots';
 import {
   applySectionBuffer,
   cueTimecodeBase,
@@ -127,7 +127,13 @@ export function SectionCutter({
   };
   const setEndTo = (s: number) => setCustomEnd(clampTo(s, startClamped + 0.5, songEnd ?? s));
 
+  const full = cues.length >= MAX_CUES;
+
   const onCreate = async () => {
+    if (full) {
+      Alert.alert('Cue list is full', `The list holds ${MAX_CUES} cues. Delete some cues to cut a new section.`);
+      return;
+    }
     if (error || !source) {
       Alert.alert('Check the section', error ?? 'Pick a song.');
       return;
@@ -334,10 +340,13 @@ export function SectionCutter({
       </Section>
 
       {source && error && ready ? <Text style={styles.error}>{error}</Text> : null}
+      {full ? (
+        <Text style={styles.error}>{`The cue list is full (${MAX_CUES} cues). Delete some cues to cut a new section.`}</Text>
+      ) : null}
       <Button
         title={busy ? 'Creating…' : 'Create section'}
         variant="primary"
-        disabled={busy || !ready || !!error}
+        disabled={busy || !ready || !!error || full}
         onPress={onCreate}
       />
     </View>

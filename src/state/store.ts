@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { assignUniqueDots } from '../domain/dots';
+import { assignUniqueDots, MAX_CUES } from '../domain/dots';
 import type { Cue, LogEvent, Session, Settings, TakeLog } from '../domain/types';
 import { makeId } from '../utils/id';
 
@@ -55,6 +55,8 @@ export interface AppState {
   armedCueId: string | null;
   sessions: Session[];
   activeSessionId: string | null;
+  /** Local date (YYYY-MM-DD) the "new shoot?" question was last answered for. */
+  lastShootDay: string | null;
 
   // settings
   updateSettings: (patch: Partial<Settings>) => void;
@@ -67,6 +69,7 @@ export interface AppState {
   removeCue: (id: string) => void;
   /** Remove several cues at once (their audio files are deleted by the caller). */
   removeCues: (ids: string[]) => void;
+  setLastShootDay: (day: string) => void;
   moveCue: (id: string, delta: -1 | 1) => void;
   armCue: (id: string) => void;
   armRelative: (delta: -1 | 1) => void;
@@ -91,19 +94,26 @@ export const useAppStore = create<AppState>()(
       armedCueId: null,
       sessions: [],
       activeSessionId: null,
+      lastShootDay: null,
 
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
 
       addCues: (cues) =>
-        set((s) => ({
-          // New cues get the next colour in the rotation unless one was chosen.
-          // Every cue gets its own marker (no repeats, no green).
-          cues: assignUniqueDots([...s.cues, ...cues]),
-          armedCueId: s.armedCueId ?? cues[0]?.id ?? null,
-        })),
+        set((s) => {
+          // One marker per cue, so never more than MAX_CUES (callers check first and say so).
+          const room = Math.max(0, MAX_CUES - s.cues.length);
+          const added = cues.slice(0, room);
+          if (!added.length) return {};
+          return {
+            // Every cue gets its own marker (no repeats, no green).
+            cues: assignUniqueDots([...s.cues, ...added]),
+            armedCueId: s.armedCueId ?? added[0]?.id ?? null,
+          };
+        }),
 
       insertCueAfter: (afterId, cue) =>
         set((s) => {
+          if (s.cues.length >= MAX_CUES) return {};
           const idx = s.cues.findIndex((c) => c.id === afterId);
           const cues = [...s.cues];
           cues.splice(idx < 0 ? cues.length : idx + 1, 0, cue);
@@ -118,6 +128,8 @@ export const useAppStore = create<AppState>()(
         }),
 
       removeCue: (id) => get().removeCues([id]),
+
+      setLastShootDay: (day) => set({ lastShootDay: day }),
 
       removeCues: (ids) =>
         set((s) => {
@@ -219,6 +231,7 @@ export const useAppStore = create<AppState>()(
         armedCueId: s.armedCueId,
         sessions: s.sessions,
         activeSessionId: s.activeSessionId,
+        lastShootDay: s.lastShootDay,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<AppState>;

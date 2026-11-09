@@ -1,4 +1,4 @@
-import { assignUniqueDots, cueDotEmoji, DOTS, dotsInUse, firstFreeDot, type DotId } from '../dots';
+import { assignUniqueDots, cueDotEmoji, DOTS, dotsInUse, firstFreeDot, MAX_CUES, type DotId } from '../dots';
 
 describe('cue markers', () => {
   it('has no green and no duplicates', () => {
@@ -6,8 +6,8 @@ describe('cue markers', () => {
     expect(DOTS.some((d) => d.id.includes('green'))).toBe(false);
     expect(emojis).not.toContain('🟢');
     expect(emojis).not.toContain('🟩');
-    expect(DOTS).toHaveLength(8);
-    expect(emojis.every((e) => !['🟥', '🟧', '🟨', '🟦', '🟪', '🟫', '⬛', '⬜'].includes(e))).toBe(true);
+    expect(DOTS).toHaveLength(16);
+    expect(MAX_CUES).toBe(16);
     expect(new Set(DOTS.map((d) => d.emoji)).size).toBe(DOTS.length);
   });
 
@@ -36,11 +36,11 @@ describe('cue markers', () => {
     expect(new Set(cues.map((c) => c.dot)).size).toBe(DOTS.length);
   });
 
-  it('repeats colours in order once there are more than eight cues', () => {
-    const cues = assignUniqueDots(Array.from({ length: 10 }, (): { dot?: DotId } => ({})));
-    expect(new Set(cues.slice(0, 8).map((c) => c.dot)).size).toBe(8);
-    expect(cues[8].dot).toBe('red');
-    expect(cues[9].dot).toBe('orange');
+  it('uses the eight dots first, then squares for cues 9 to 16', () => {
+    const cues = assignUniqueDots(Array.from({ length: 16 }, (): { dot?: DotId } => ({})));
+    const emojis = cues.map((c) => cueDotEmoji(c));
+    expect(emojis.slice(0, 8)).toEqual(['🔴', '🟠', '🟡', '🔵', '🟣', '🟤', '⚫', '⚪']);
+    expect(emojis.slice(8)).toEqual(['🟥', '🟧', '🟨', '🟦', '🟪', '🟫', '⬛', '⬜']);
   });
 
   it('reports markers used by other cues', () => {
@@ -50,11 +50,6 @@ describe('cue markers', () => {
 
   it('maps a marker to its emoji', () => {
     expect(cueDotEmoji({ dot: 'blue' })).toBe('🔵');
-    expect(cueDotEmoji({ dot: 'sq-red' as never })).toBe('⚪'); // retired square
-  });
-
-  it('replaces retired squares with free dots', () => {
-    const cues = assignUniqueDots([{ dot: 'red' as const }, { dot: 'sq-red' as never }]);
-    expect(cues.map((c) => c.dot)).toEqual(['red', 'orange']);
+    expect(cueDotEmoji({ dot: 'sq-red' })).toBe('🟥');
   });
 });

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { NewShootPrompt } from '../app-shell/NewShootPrompt';
 import { useAppBootstrap } from '../app-shell/useAppBootstrap';
 import EditCueScreen from '../app/cue/[id]';
 import CueListScreen from '../app/cues';
@@ -95,6 +96,7 @@ export default function PreviewApp() {
         {stack.map((route, i) => (
           <ScreenFrame key={route.key} route={route} focused={i === stack.length - 1} />
         ))}
+        <NewShootPrompt />
         <DialogHost />
       </View>
     </SafeAreaProvider>

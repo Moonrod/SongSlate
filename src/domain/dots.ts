@@ -1,9 +1,10 @@
 import type { Cue } from './types';
 
 /**
- * Coloured dots shown in front of a cue's title on the slate. Each cue gets its
- * own, so no two cues share one. There is no green: it would vanish on the green
- * screen. With more than eight cues, dots have to repeat.
+ * Markers shown in front of a cue's title on the slate: eight coloured dots,
+ * then eight coloured squares for cues 9–16. Each cue gets its own, so no two
+ * cues share one, which caps the cue list at 16. There is no green: it would
+ * vanish on the green screen.
  */
 export const DOTS = [
   { id: 'red', emoji: '🔴', label: 'Red dot' },
@@ -14,13 +15,25 @@ export const DOTS = [
   { id: 'brown', emoji: '🟤', label: 'Brown dot' },
   { id: 'black', emoji: '⚫', label: 'Black dot' },
   { id: 'white', emoji: '⚪', label: 'White dot' },
+  // Cues 9–16 get squares once the dots are used up (still no green).
+  { id: 'sq-red', emoji: '🟥', label: 'Red square' },
+  { id: 'sq-orange', emoji: '🟧', label: 'Orange square' },
+  { id: 'sq-yellow', emoji: '🟨', label: 'Yellow square' },
+  { id: 'sq-blue', emoji: '🟦', label: 'Blue square' },
+  { id: 'sq-purple', emoji: '🟪', label: 'Purple square' },
+  { id: 'sq-brown', emoji: '🟫', label: 'Brown square' },
+  { id: 'sq-black', emoji: '⬛', label: 'Black square' },
+  { id: 'sq-white', emoji: '⬜', label: 'White square' },
 ] as const;
+
+/** One marker per cue, so the cue list holds at most this many cues. */
+export const MAX_CUES = DOTS.length;
 
 export type DotId = (typeof DOTS)[number]['id'];
 
 const isDotId = (id: unknown): id is DotId => DOTS.some((d) => d.id === id);
 
-/** First dot not already used. With more than eight cues, dots start repeating. */
+/** First marker not already used (dots before squares). */
 export function firstFreeDot(used: ReadonlySet<string>): DotId {
   const free = DOTS.find((d) => !used.has(d.id));
   return (free ?? DOTS[used.size % DOTS.length]).id;
@@ -40,7 +53,7 @@ export function assignUniqueDots<T extends Pick<Cue, 'dot'>>(cues: T[]): T[] {
     }
     return false;
   });
-  let overflow = 0; // past eight cues, repeats cycle through the colours
+  let overflow = 0; // only past MAX_CUES, which the store prevents
   return cues.map((c, i) => {
     if (keep[i]) return c;
     const free = DOTS.find((d) => !used.has(d.id));
