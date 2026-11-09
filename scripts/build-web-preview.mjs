@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
  * Builds the browser preview of SyncSlate into dist-preview/site:
- *   index.html               page body (the host adds <html>/<head>/<body>)
- *   syncslate.js             the app bundle (expo-router swapped for an in-memory navigator)
+ *   index.html   one self-contained page: the page body (the host adds
+ *                <html>/<head>/<body>) with the app bundle inlined. A single file,
+ *                because some hosted viewers (e.g. the Claude iOS app) fail to
+ *                load a page that pulls in a separate script file.
  *
  * Usage: npm run preview:web
  * Serve dist-preview/site with any static server to try it locally, e.g.
  *   npx serve dist-preview/site
  */
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,7 +36,11 @@ if (bundles.length !== 1) {
 }
 
 mkdirSync(siteDir, { recursive: true });
-copyFileSync(join(jsDir, bundles[0]), join(siteDir, 'syncslate.js'));
+// Inline the bundle. "</script" inside it would end the tag early, so escape it
+// (and "<!--", which can switch the HTML parser into a script-comment state).
+const bundle = readFileSync(join(jsDir, bundles[0]), 'utf8')
+  .replace(/<\/script/gi, '<\\/script')
+  .replace(/<!--/g, '<\\!--');
 writeFileSync(
   join(siteDir, 'index.html'),
   `<title>SyncSlate Preview</title>
@@ -50,7 +56,7 @@ writeFileSync(
 <noscript>SyncSlate needs JavaScript to run.</noscript>
 <!-- Shown until the app has loaded (the bundle is ~0.9 MB), then replaced by it. -->
 <div id="root"><div class="boot" role="status">Loading SyncSlate…</div></div>
-<script src="syncslate.js" defer></script>
+<script>${bundle}</script>
 `,
 );
 

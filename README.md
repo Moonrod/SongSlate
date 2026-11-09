@@ -109,7 +109,7 @@ To try the screens and flow without a phone build:
 npm run preview:web
 ```
 
-This writes a static site to `dist-preview/site`. Serve it with any static server:
+This writes a single self-contained page, `dist-preview/site/index.html` (the app code is inlined, so hosted viewers that only load one file can show it). Serve it with any static server:
 
 ```bash
 npx serve dist-preview/site
