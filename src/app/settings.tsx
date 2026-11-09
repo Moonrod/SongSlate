@@ -99,6 +99,11 @@ export default function SettingsScreen() {
       </Section>
 
       <Button
+        title="Replay the guided tour"
+        onPress={() => useAppStore.getState().setTourDone(false)}
+        style={{ marginBottom: 10 }}
+      />
+      <Button
         title="Restore default settings"
         variant="danger"
         onPress={() =>

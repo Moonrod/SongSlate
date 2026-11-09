@@ -83,14 +83,13 @@ export default function SlateScreen() {
   const usableWidth = width - insets.left - insets.right - 24;
   // While playing, the title is as big as the timecode, so both must fit with the take line and bars.
   const chrome = insets.top + insets.bottom + 16 + 44 * 2 + 28 + infoSize * 1.4;
-  // A sped-up/slowed section adds a "2x F" / "2x S" badge (half size) after the timecode.
+  const bigSize = Math.floor(Math.min(usableWidth / 5.1, (height - chrome) / 2.5));
+  // A sped-up/slowed section ends its title with "2x F" / "2x S", after the brackets.
   const speedTag = speedLabel(armedCue?.speed);
-  const bigSize = Math.floor(Math.min(usableWidth / (speedTag ? 6.8 : 5.1), (height - chrome) / 2.5));
-  const badge = speedTag ? <Text style={{ fontSize: Math.round(bigSize * 0.5) }}>{` ${speedTag}`}</Text> : null;
   // Playing: title as big as the timecode. Portrait wraps up to 3 lines at that size;
   // only names too long even for that are scaled down (conservative estimate: heavy glyph ≈ 0.72 em).
   const titleLines = isGreen ? (landscape ? 1 : 3) : 2;
-  const titleText = armedCue?.name ?? 'SyncSlate';
+  const titleText = armedCue ? `${armedCue.name}${speedTag ? ` ${speedTag}` : ''}` : 'SyncSlate';
   const dotEmoji = armedCue ? cueDotEmoji(armedCue) : null;
   const fitTitle = (max: number) => {
     const avail = usableWidth;
@@ -171,7 +170,6 @@ export default function SlateScreen() {
                 adjustsFontSizeToFit
               >
                 {view.timecode}
-                {badge}
               </Text>
             ) : view.phase === 'countdown' ? null : (
               <Text
@@ -180,7 +178,6 @@ export default function SlateScreen() {
                 adjustsFontSizeToFit
               >
                 {startLabel}
-                {startLabel !== 'FULL SONG' ? badge : null}
               </Text>
             )}
           </View>

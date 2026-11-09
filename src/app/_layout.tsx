@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { GuidedTour } from '../app-shell/GuidedTour';
 import { NewShootPrompt } from '../app-shell/NewShootPrompt';
 import { useAppBootstrap } from '../app-shell/useAppBootstrap';
 import { colors } from '../ui/theme';
@@ -37,6 +38,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings" options={{ title: 'Settings' }} />
       </Stack>
       <NewShootPrompt />
+      <GuidedTour />
     </SafeAreaProvider>
   );
 }

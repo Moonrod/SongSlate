@@ -25,6 +25,7 @@ export function NewShootPrompt() {
   const lastShootDay = useAppStore((s) => s.lastShootDay);
   const cueCount = useAppStore((s) => s.cues.length);
   const setLastShootDay = useAppStore((s) => s.setLastShootDay);
+  const tourDone = useAppStore((s) => s.tourDone);
   const [flash] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
@@ -35,12 +36,15 @@ export function NewShootPrompt() {
   }, []);
 
   const newDay = lastShootDay !== today;
-  // Nothing to clear: just remember the day.
+  // The very first open isn't a "new day", and with nothing to clear there's
+  // nothing to ask: just remember the day.
+  const firstOpen = lastShootDay === null;
   useEffect(() => {
-    if (newDay && cueCount === 0) setLastShootDay(today);
-  }, [newDay, cueCount, today, setLastShootDay]);
+    if (newDay && (firstOpen || cueCount === 0)) setLastShootDay(today);
+  }, [newDay, firstOpen, cueCount, today, setLastShootDay]);
 
-  const askingFor = newDay && cueCount > 0 ? today : null;
+  // Never on top of the guided tour; it's asked once the tour is finished.
+  const askingFor = newDay && !firstOpen && cueCount > 0 && tourDone ? today : null;
 
   // Flash the backdrop a few times to catch the eye (a steady fade with Reduce Motion on).
   useEffect(() => {

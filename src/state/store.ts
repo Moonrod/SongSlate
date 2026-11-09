@@ -57,6 +57,8 @@ export interface AppState {
   activeSessionId: string | null;
   /** Local date (YYYY-MM-DD) the "new shoot?" question was last answered for. */
   lastShootDay: string | null;
+  /** The first-run guided tour has been finished or skipped. */
+  tourDone: boolean;
 
   // settings
   updateSettings: (patch: Partial<Settings>) => void;
@@ -70,6 +72,7 @@ export interface AppState {
   /** Remove several cues at once (their audio files are deleted by the caller). */
   removeCues: (ids: string[]) => void;
   setLastShootDay: (day: string) => void;
+  setTourDone: (done: boolean) => void;
   moveCue: (id: string, delta: -1 | 1) => void;
   armCue: (id: string) => void;
   armRelative: (delta: -1 | 1) => void;
@@ -95,6 +98,7 @@ export const useAppStore = create<AppState>()(
       sessions: [],
       activeSessionId: null,
       lastShootDay: null,
+      tourDone: false,
 
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
 
@@ -130,6 +134,8 @@ export const useAppStore = create<AppState>()(
       removeCue: (id) => get().removeCues([id]),
 
       setLastShootDay: (day) => set({ lastShootDay: day }),
+
+      setTourDone: (done) => set({ tourDone: done }),
 
       removeCues: (ids) =>
         set((s) => {
@@ -232,6 +238,7 @@ export const useAppStore = create<AppState>()(
         sessions: s.sessions,
         activeSessionId: s.activeSessionId,
         lastShootDay: s.lastShootDay,
+        tourDone: s.tourDone,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<AppState>;

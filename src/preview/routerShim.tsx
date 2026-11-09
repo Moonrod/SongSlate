@@ -75,6 +75,15 @@ export const router = {
   canGoBack() {
     return stack.length > 1;
   },
+  canDismiss() {
+    return stack.length > 1;
+  },
+  dismissAll() {
+    if (stack.length > 1) {
+      stack = [stack[0]];
+      emit();
+    }
+  },
 };
 
 export function usePreviewStack(): PreviewRoute[] {
@@ -134,6 +143,11 @@ export const Stack = Object.assign(() => null, { Screen: StackScreen });
 
 export function Link({ children }: { children?: ReactNode }) {
   return <>{children}</>;
+}
+
+/** The in-memory navigator is always ready. */
+export function useRootNavigationState() {
+  return { key: 'preview' };
 }
 
 export function useRouter() {
