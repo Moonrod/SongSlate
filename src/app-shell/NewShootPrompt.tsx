@@ -14,8 +14,8 @@ export function localDay(now = new Date()): string {
 
 /**
  * The first time the app is opened (or brought back) on a new day, flashes
- * "Is this a new shoot?". Yes clears the cue list and its audio files; No
- * keeps everything. Asked once per day, never during a take, and not at all
+ * "Is this a new shoot?". Yes clears the cue list and its audio files and starts
+ * a new report session (takes from 1); No keeps everything. Asked once per day, never during a take, and not at all
  * when the cue list is already empty.
  */
 export function NewShootPrompt() {
@@ -69,9 +69,12 @@ export function NewShootPrompt() {
 
   const answer = (newShoot: boolean) => {
     if (newShoot) {
-      const { cues, removeCues } = useAppStore.getState();
+      const { cues, removeCues, newSession } = useAppStore.getState();
       removeCues(cues.map((c) => c.id));
       cues.forEach((c) => deleteCueFile(c));
+      // A fresh report session for the day: takes start again at 1, and earlier
+      // shoots keep their own logs in the report.
+      newSession();
     }
     setLastShootDay(askingFor);
   };
@@ -83,7 +86,7 @@ export function NewShootPrompt() {
       <View style={styles.card} accessibilityRole="alert">
         <Text style={styles.title}>Is this a new shoot?</Text>
         <Text style={styles.body}>
-          {`Yes clears the cue list (${cueCount} cue${cueCount === 1 ? '' : 's'}) and their audio files. No keeps everything as it is.`}
+          {`Yes clears the cue list (${cueCount} cue${cueCount === 1 ? '' : 's'}) and starts a new report session from take 1. No keeps everything as it is.`}
         </Text>
         <View style={styles.buttons}>
           <Pressable
